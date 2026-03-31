@@ -1,6 +1,6 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,9 +9,9 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-# Use Gemini 1.5 Flash
-model = genai.GenerativeModel('gemini-1.5-flash')
+    client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    client = None
 
 def get_json_data_from_text(text: str) -> dict:
     """
@@ -29,7 +29,10 @@ Hanya balas dalam format JSON murni. Jika tidak mengerti, balas {"error": true}.
     prompt = f"{system_instruction}\n\nUser input: {text}"
     
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         response_text = response.text.strip()
         
         # Clean up markdown formatting if present

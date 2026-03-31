@@ -1,21 +1,24 @@
 # Personal Finance & Inventory Bot 🤖
 
-Bot Telegram cerdas untuk manajemen keuangan dan stok barang, ditenagai oleh Gemini 1.5 Flash AI dan SQLite.
+Bot Telegram cerdas untuk manajemen keuangan dan stok barang, ditenagai oleh Gemini 1.5/2.5 Flash AI dan sinkronisasi MySQL lokal. Terintegrasi dengan Web Dashboard interaktif.
 
 ## Fitur
 
 - 🧠 **Natural Language Processing (NLP)**: Bisa memahami bahasa manusia, tanpa command ribet. (contoh: "beli sabun 20rb", "gaji 2 juta", "stok handuk 5 unit").
 - 💰 **Manajemen Keuangan**: Mencatat pemasukan dan pengeluaran secara otomatis.
 - 📦 **Manajemen Stok Barang**: Mencatat stok inventaris dan perubahannya.
-- 📊 **Laporan Bulanan**: Melihat ringkasan pemasukan dan pengeluaran dengan command `/laporan`.
-- 🗄️ **Local Database**: Data disimpan aman secara lokal dengan SQLite.
+- 📊 **Laporan Bulanan & Web Dashboard**: Melihat ringkasan pemasukan dan pengeluaran secara real-time melalui tampilan antarmuka web yang lengkap, diurutkan bedasar riwayat terbaru.
+- 🗑️ **Manajemen Data Lanjutan**: Terdapat tombol hapus data transaksi di Dashboard Web.
+- 🗄️ **MySQL Database**: Tersimpan aman dan efisien menggunakan local MySQL (Laragon/XAMPP).
 
 ## Tech Stack
 
 - Python 3.10+
-- `google-generativeai` (Gemini API)
+- `google-genai` (Gemini API)
+- `google-genai` (Gemini API)
 - `pyTelegramBotAPI` (Telebot)
-- `sqlite3`
+- `mysql-connector-python` (Database)
+- `Flask` & HTML/Tailwind CSS (Web Dashboard)
 - `python-dotenv`
 
 ## Struktur Folder
@@ -26,7 +29,10 @@ finance_bot_project/
 ├── .env.example          # Contoh file konfigurasi API Keys
 ├── ai_brain.py           # Logika AI untuk menghubungi Gemini API
 ├── bot.py                # Core sistem Telegram Bot
-├── database.py           # Pengaturan dan operasi Database SQLite
+├── dashboard.py          # Framework web (Flask) untuk melihat laporan UI
+├── database.py           # Pengaturan dan operasi Database MySQL
+├── templates/
+│   └── index.html        # View UI Dashboard Laporan Tailwnd
 └── README.md             # Dokumentasi proyek
 ```
 
@@ -65,7 +71,7 @@ finance_bot_project/
    Pip install library yang dibutuhkan:
 
    ```bash
-   pip install pyTelegramBotAPI google-generativeai python-dotenv
+   pip install pyTelegramBotAPI google-genai python-dotenv
    ```
 
 4. **Konfigurasi Environment Variable (.env)**
@@ -80,15 +86,26 @@ finance_bot_project/
    ```env
    TELEGRAM_BOT_TOKEN="token_dari_botfather"
    GEMINI_API_KEY="api_key_dari_google"
+   
+   # Database (MySQL Laragon/XAMPP local)
+   DB_HOST="localhost"
+   DB_USER="root"
+   DB_PASSWORD=""
+   DB_NAME="finance_bot"
    ```
 
-### 4. Cara Menjalankan Bot
-
-Jalankan bot dengan perintah:
+### 4. Cara Menjalankan Sistem
+Jalankan bot telegram di terminal pertama:
 
 ```bash
 python bot.py
 ```
 
-Jika berhasil, terminal akan memunculkan tulisan `Bot is running...`. Buka bot di Telegram dan kirim pesan `/start`.
+Jika berhasil, terminal akan memunculkan tulisan `Bot is running...`.
+
+**Lalu Untuk Membuka Dashboard Laporan**, buka Tab Terminal (CMD/Powershell) **BARU** di folder yang sama, dan jalankan:
+```bash
+python dashboard.py
+```
+Aplikasi Laporan Web akan berjalan. Buka *browser* dan kunjungi: **`http://localhost:5000`**
 
