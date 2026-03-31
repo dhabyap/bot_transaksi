@@ -131,8 +131,10 @@ def insert_transaction(user_id, tipe, item, nominal, kategori):
     '''
     cursor.execute(sql, (user_id, tipe, item, nominal, kategori, timestamp))
     conn.commit()
+    last_id = cursor.lastrowid
     cursor.close()
     conn.close()
+    return last_id
 
 def insert_inventory(user_id, nama_barang, kuantitas, status):
     conn = get_connection()
@@ -144,8 +146,10 @@ def insert_inventory(user_id, nama_barang, kuantitas, status):
     '''
     cursor.execute(sql, (user_id, nama_barang, kuantitas, status, timestamp))
     conn.commit()
+    last_id = cursor.lastrowid
     cursor.close()
     conn.close()
+    return last_id
 
 def get_monthly_report(user_id=None, month_str=None):
     conn = get_connection()
@@ -175,13 +179,15 @@ def get_monthly_report(user_id=None, month_str=None):
     cursor.close()
     conn.close()
     
-    report = {"pemasukan": 0, "pengeluaran": 0}
+    report = {"pemasukan": 0, "pengeluaran": 0, "investasi": 0}
     for row in results:
         tipe = row['tipe'].lower()
         if tipe == "pemasukan":
             report["pemasukan"] = row['total']
         elif tipe == "pengeluaran":
             report["pengeluaran"] = row['total']
+        elif tipe == "investasi":
+            report["investasi"] = row['total']
             
     return report
 
@@ -308,3 +314,13 @@ def insert_chat_log(user_id, message_text):
     conn.commit()
     cursor.close()
     conn.close()
+
+def get_user_profile(user_id):
+    """Fetch user profile details for /profile command."""
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT * FROM users WHERE user_id = %s', (user_id,))
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return result
