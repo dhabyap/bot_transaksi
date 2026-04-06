@@ -123,5 +123,5 @@ def register_handlers(bot):
                 
             text += f"{icon} `[{date_str}]` `[ID:{item_id}]`\n*{name}* (Rp {val:,.0f})\n_Kategori: {kategori}_\n\n"
                 
-        text += "💡 *Tips:* Gunakan `/hapus <ID>` jika ada transaksi yang salah catat."
+        text += "💡 *Tips:* Gunakan `/hapus <ID>` jika ada transaksi yang salah catat.\nContoh: `/hapus 27` atau `/hapus T-27`"
         bot.reply_to(message, text, parse_mode='Markdown')

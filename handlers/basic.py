@@ -20,7 +20,11 @@ def register_handlers(bot):
             "📜 /riwayat - Lihat riwayat transaksi terakhir\n"
             "✏️ /edit `<ID> <Teks>` - Ubah transaksi\n"
             "🗑 /hapus `<ID>` - Hapus transaksi\n"
-            "👤 /profile - Lihat profil & statistik"
+            "👤 /profile - Lihat profil & statistik\n\n"
+            "📥 *Export Excel:*\n"
+            "📊 /export - Excel bulan ini\n"
+            "📊 /export `2026-03` - Excel bulan tertentu\n"
+            "📊 /export `all` - Semua transaksi (semua bulan)"
         )
         bot.reply_to(message, welcome_text, parse_mode='Markdown')
 

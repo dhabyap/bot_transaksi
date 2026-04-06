@@ -1,6 +1,7 @@
 from . import basic
 from . import report
 from . import management
+from . import export
 from . import nlp_message
 
 def register_all_handlers(bot):
@@ -12,4 +13,5 @@ def register_all_handlers(bot):
     basic.register_handlers(bot)
     report.register_handlers(bot)
     management.register_handlers(bot)
+    export.register_handlers(bot)
     nlp_message.register_handlers(bot)

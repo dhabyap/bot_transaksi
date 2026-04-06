@@ -229,6 +229,18 @@ def delete_transaction(tx_id, user_id):
     conn.close()
     return affected > 0
 
+def admin_delete_transaction(tx_id):
+    """Hapus transaksi manapun (tanpa filter user_id). Digunakan oleh dashboard admin."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    sql = "DELETE FROM transactions WHERE id = %s"
+    cursor.execute(sql, (tx_id,))
+    affected = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return affected > 0
+
 def delete_inventory(inv_id, user_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -301,6 +313,16 @@ def get_all_users():
     conn.close()
     return results
 
+def get_all_user_chat_ids():
+    """Ambil semua user_id (chat_id) untuk keperluan broadcast bot."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id FROM users')
+    results = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return results
+
 def insert_chat_log(user_id, message_text):
     """Log incoming user chat to the database."""
     conn = get_connection()
@@ -324,3 +346,191 @@ def get_user_profile(user_id):
     cursor.close()
     conn.close()
     return result
+
+def get_category_breakdown(month_str, user_id=None):
+    """
+    Ambil total nominal per kategori untuk tipe 'pengeluaran' saja.
+    Digunakan untuk pie chart distribusi pengeluaran.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if user_id:
+        sql = """
+            SELECT kategori, SUM(nominal) as total
+            FROM transactions
+            WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s
+              AND tipe = 'pengeluaran'
+              AND user_id = %s
+            GROUP BY kategori
+            ORDER BY total DESC
+        """
+        cursor.execute(sql, (month_str, user_id))
+    else:
+        sql = """
+            SELECT kategori, SUM(nominal) as total
+            FROM transactions
+            WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s
+              AND tipe = 'pengeluaran'
+            GROUP BY kategori
+            ORDER BY total DESC
+        """
+        cursor.execute(sql, (month_str,))
+
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+def get_daily_trend(month_str, user_id=None):
+    """
+    Ambil total nominal per hari untuk setiap tipe transaksi.
+    Digunakan untuk line chart tren harian.
+    Returns list of {day, tipe, total}.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if user_id:
+        sql = """
+            SELECT DAY(timestamp) as day, tipe, SUM(nominal) as total
+            FROM transactions
+            WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s
+              AND user_id = %s
+            GROUP BY DAY(timestamp), tipe
+            ORDER BY day ASC
+        """
+        cursor.execute(sql, (month_str, user_id))
+    else:
+        sql = """
+            SELECT DAY(timestamp) as day, tipe, SUM(nominal) as total
+            FROM transactions
+            WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s
+            GROUP BY DAY(timestamp), tipe
+            ORDER BY day ASC
+        """
+        cursor.execute(sql, (month_str,))
+
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+def get_stats_summary(month_str, user_id=None):
+    """
+    Ambil statistik ringkasan: jumlah transaksi, rata-rata pengeluaran harian,
+    dan kategori dengan pengeluaran terbesar.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Bangun filter dan params sekali, gunakan ulang per query
+    if user_id:
+        base_where = "DATE_FORMAT(timestamp, '%Y-%m') = %s AND user_id = %s"
+        params = (month_str, user_id)
+    else:
+        base_where = "DATE_FORMAT(timestamp, '%Y-%m') = %s"
+        params = (month_str,)
+
+    # Total jumlah transaksi
+    cursor.execute(
+        f"SELECT COUNT(*) as total FROM transactions WHERE {base_where}",
+        params
+    )
+    total_tx = (cursor.fetchone() or {}).get('total', 0)
+
+    # Rata-rata pengeluaran harian — gunakan dua parameter terpisah untuk subquery
+    cursor.execute(
+        f"""
+        SELECT AVG(daily_total) as avg_daily FROM (
+            SELECT DATE(timestamp) as d, SUM(nominal) as daily_total
+            FROM transactions
+            WHERE {base_where} AND tipe = 'pengeluaran'
+            GROUP BY DATE(timestamp)
+        ) sub
+        """,
+        params  # params cukup 1x karena MySQL hanya butuh 1 pass per prepared statement
+    )
+    avg_daily = (cursor.fetchone() or {}).get('avg_daily') or 0
+
+    # Kategori terbesar
+    cursor.execute(
+        f"""
+        SELECT kategori, SUM(nominal) as total
+        FROM transactions
+        WHERE {base_where} AND tipe = 'pengeluaran'
+        GROUP BY kategori
+        ORDER BY total DESC
+        LIMIT 1
+        """,
+        params
+    )
+    top_cat_row = cursor.fetchone()
+    top_category = top_cat_row['kategori'] if top_cat_row else '-'
+    top_category_val = top_cat_row['total'] if top_cat_row else 0
+
+    cursor.close()
+    conn.close()
+
+    return {
+        'total_tx': total_tx,
+        'avg_daily_pengeluaran': round(avg_daily),
+        'top_category': top_category,
+        'top_category_val': top_category_val,
+    }
+
+def get_all_transactions_by_user(user_id):
+    """
+    Ambil SEMUA transaksi milik satu user (tanpa filter bulan).
+    Digunakan untuk fitur export Excel per-user.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    sql = '''
+        SELECT t.id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
+               u.first_name, u.last_name, u.username
+        FROM transactions t
+        LEFT JOIN users u ON t.user_id = u.user_id
+        WHERE t.user_id = %s
+        ORDER BY t.timestamp DESC
+    '''
+    cursor.execute(sql, (user_id,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+def get_all_transactions_export(month_str=None, user_id=None):
+    """
+    Ambil transaksi untuk keperluan export Excel.
+    Bisa difilter berdasarkan bulan dan/atau user_id.
+    Jika keduanya None, ambil semua transaksi.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    conditions = []
+    params = []
+
+    if month_str:
+        conditions.append("DATE_FORMAT(t.timestamp, '%Y-%m') = %s")
+        params.append(month_str)
+    if user_id:
+        conditions.append("t.user_id = %s")
+        params.append(user_id)
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    sql = f'''
+        SELECT t.id, t.user_id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
+               u.first_name, u.last_name, u.username
+        FROM transactions t
+        LEFT JOIN users u ON t.user_id = u.user_id
+        {where_clause}
+        ORDER BY t.timestamp DESC
+    '''
+    cursor.execute(sql, params)
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results

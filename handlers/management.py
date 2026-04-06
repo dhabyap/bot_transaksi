@@ -9,27 +9,33 @@ def register_handlers(bot):
         parts = message.text.split()
         
         if len(parts) < 2:
-            bot.reply_to(message, "❌ Format salah. Gunakan: `/hapus <ID>`\nContoh: `/hapus T-10`", parse_mode='Markdown')
+            bot.reply_to(message, "❌ Format salah. Gunakan: `/hapus <ID>`\nContoh: `/hapus 10` atau `/hapus T-10`", parse_mode='Markdown')
             return
             
         raw_id = parts[1].upper()
         try:
-            prefix, item_id = raw_id.split('-')
-            item_id = int(item_id)
-            
-            # Hanya memproses ID Transaksi (T)
-            if prefix == 'T':
-                success = database.delete_transaction(item_id, user_id)
-                if success:
-                    bot.reply_to(message, f"✅ Data `{raw_id}` berhasil dihapus.", parse_mode='Markdown')
-                else:
-                    bot.reply_to(message, f"❌ Data `{raw_id}` tidak ditemukan atau bukan milik Anda.")
+            # Support both plain number (e.g. 27) and prefixed format (e.g. T-27)
+            if raw_id.isdigit():
+                item_id = int(raw_id)
+                display_id = f"T-{item_id}"
+            elif '-' in raw_id:
+                prefix, id_part = raw_id.split('-', 1)
+                item_id = int(id_part)
+                if prefix != 'T':
+                    bot.reply_to(message, "❌ ID tidak valid. Gunakan angka (contoh: `27`) atau awalan T (contoh: `T-27`).", parse_mode='Markdown')
+                    return
+                display_id = raw_id
             else:
-                bot.reply_to(message, "❌ ID tidak valid. Pastikan menggunakan awalan T (contoh: `T-10`).", parse_mode='Markdown')
+                raise ValueError("Format tidak dikenali")
+            
+            success = database.delete_transaction(item_id, user_id)
+            if success:
+                bot.reply_to(message, f"✅ Data `{display_id}` berhasil dihapus.", parse_mode='Markdown')
+            else:
+                bot.reply_to(message, f"❌ Data `{display_id}` tidak ditemukan atau bukan milik Anda.")
                 
         except ValueError:
-            # Menangkap error jika split('-') gagal atau item_id bukan angka
-            bot.reply_to(message, "❌ Format ID salah. Contoh yang benar: `T-10`", parse_mode='Markdown')
+            bot.reply_to(message, "❌ Format ID salah. Gunakan angka (contoh: `/hapus 27`) atau format T (contoh: `/hapus T-10`)", parse_mode='Markdown')
 
     @bot.message_handler(commands=['edit'])
     def edit_item(message):
@@ -39,7 +45,7 @@ def register_handlers(bot):
         parts = message.text.split(maxsplit=2) 
         
         if len(parts) < 3:
-            bot.reply_to(message, "❌ Format salah. Gunakan: `/edit <ID> <Kalimat Baru>`\nContoh: `/edit T-10 gaji naik 5 juta`", parse_mode='Markdown')
+            bot.reply_to(message, "❌ Format salah. Gunakan: `/edit <ID> <Kalimat Baru>`\nContoh: `/edit 10 gaji naik 5 juta` atau `/edit T-10 gaji naik 5 juta`", parse_mode='Markdown')
             return
             
         raw_id = parts[1].upper()
@@ -53,22 +59,31 @@ def register_handlers(bot):
             return
             
         try:
-            prefix, item_id = raw_id.split('-')
-            item_id = int(item_id)
+            # Support both plain number (e.g. 10) and prefixed format (e.g. T-10)
+            if raw_id.isdigit():
+                item_id = int(raw_id)
+                display_id = f"T-{item_id}"
+            elif '-' in raw_id:
+                prefix, id_part = raw_id.split('-', 1)
+                item_id = int(id_part)
+                if prefix != 'T':
+                    bot.reply_to(message, "❌ ID tidak valid. Gunakan angka (contoh: `10`) atau awalan T (contoh: `T-10`).", parse_mode='Markdown')
+                    return
+                display_id = raw_id
+            else:
+                raise ValueError("Format tidak dikenali")
             
             tipe = data.get("tipe", "").lower()
             item_name = data.get("item", "")
             nominal = float(data.get("nominal", 0))
             kategori = data.get("kategori", "")
             
-            # Tambahkan "investasi" ke dalam list tipe yang diizinkan
-            if prefix == 'T' and tipe in ["pemasukan", "pengeluaran", "investasi"]:
+            if tipe in ["pemasukan", "pengeluaran", "investasi"]:
                 success = database.update_transaction(item_id, user_id, tipe, item_name, nominal, kategori)
                 
                 if success:
-                    # Berikan feedback yang informatif agar kamu tahu hasil editannya
                     feedback = (
-                        f"✅ Data `{raw_id}` berhasil diperbarui:\n\n"
+                        f"✅ Data `{display_id}` berhasil diperbarui:\n\n"
                         f"🔹 *Tipe:* {tipe.capitalize()}\n"
                         f"🔹 *Item:* {item_name}\n"
                         f"🔹 *Nominal:* Rp {nominal:,.0f}\n"
@@ -76,11 +91,11 @@ def register_handlers(bot):
                     )
                     bot.reply_to(message, feedback, parse_mode='Markdown')
                 else:
-                    bot.reply_to(message, f"❌ Data `{raw_id}` tidak ditemukan atau bukan milik Anda.")
+                    bot.reply_to(message, f"❌ Data `{display_id}` tidak ditemukan atau bukan milik Anda.")
             else:
-                bot.reply_to(message, "❌ Gagal memperbarui. Pastikan ID menggunakan awalan T dan input berupa transaksi keuangan.")
+                bot.reply_to(message, "❌ Gagal memperbarui. Pastikan input berupa transaksi keuangan yang valid.")
                 
         except ValueError:
-            bot.reply_to(message, "❌ Format ID salah. Contoh yang benar: `T-10`", parse_mode='Markdown')
+            bot.reply_to(message, "❌ Format ID salah. Gunakan angka (contoh: `/edit 10 ...`) atau format T (contoh: `/edit T-10 ...`)", parse_mode='Markdown')
         except Exception as e:
             bot.reply_to(message, f"❌ Terjadi kesalahan sistem: {str(e)}")

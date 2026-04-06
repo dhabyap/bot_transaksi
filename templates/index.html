@@ -3,145 +3,1146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finance Bot Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Finance Dashboard — Yuhu</title>
+    <meta name="description" content="Dashboard keuangan personal berbasis Telegram Bot. Pantau pemasukan, pengeluaran, investasi, dan saldo cash secara real-time.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* ── Reset & Variables ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:           #0b0d14;
+            --surface:      #13151f;
+            --surface2:     #1c1f2e;
+            --surface3:     #232639;
+            --border:       #2a2d45;
+            --border-light: #33385a;
+            --accent:       #6c8ef5;
+            --accent2:      #a78bfa;
+            --green:        #34d399;
+            --green-dim:    rgba(52,211,153,.15);
+            --red:          #f87171;
+            --red-dim:      rgba(248,113,113,.15);
+            --blue:         #60a5fa;
+            --blue-dim:     rgba(96,165,250,.15);
+            --yellow:       #fbbf24;
+            --yellow-dim:   rgba(251,191,36,.15);
+            --purple:       #c084fc;
+            --purple-dim:   rgba(192,132,252,.15);
+            --text:         #e2e8f0;
+            --muted:        #8b93b0;
+            --muted2:       #5a6080;
+            --radius:       14px;
+            --radius-sm:    8px;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* ── Navbar ── */
+        nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-brand i { font-size: 1.3rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav-month-pill {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: 999px;
+        }
+
+        /* ── Layout ── */
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 5rem;
+        }
+
+        /* ── Flash Messages ── */
+        .flash {
+            padding: 13px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .flash.success { background: var(--green-dim);  border-color: var(--green); color: var(--green); }
+        .flash.error   { background: var(--red-dim);    border-color: var(--red);   color: var(--red);   }
+
+        /* ── Section Title ── */
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title i { color: var(--accent); }
+
+        /* ── Filter Card ── */
+        .filter-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.4rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+        .filter-group { flex: 1; min-width: 180px; }
+        .filter-group label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(108,142,245,.15);
+        }
+        .filter-group input[type="month"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+        .select-wrap { position: relative; }
+        .select-wrap::after {
+            content: '\f078';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            font-size: 0.65rem;
+            color: var(--muted);
+            position: absolute;
+            right: 12px; top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+        .select-wrap select { padding-right: 32px; appearance: none; -webkit-appearance: none; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s, transform .1s;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+        .btn-primary:hover { opacity: .88; }
+        .btn-primary:active { transform: scale(.97); }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color .2s, color .2s;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+            display: inline-block;
+            line-height: 1.4;
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Summary Cards (5 cards) ── */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        @media(max-width: 1100px) { .summary-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media(max-width: 700px)  { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width: 480px)  { .summary-grid { grid-template-columns: 1fr; } }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.3rem 1.4rem;
+            transition: border-color .2s, transform .2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 60%, rgba(255,255,255,.015));
+            pointer-events: none;
+        }
+        .stat-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
+        .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .stat-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+        }
+        .stat-icon {
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .stat-value {
+            font-size: 1.45rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -.01em;
+        }
+        .stat-sub {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* card color variants */
+        .c-green  .stat-value { color: var(--green);  } .c-green  .stat-icon { background: var(--green-dim);  color: var(--green);  }
+        .c-red    .stat-value { color: var(--red);    } .c-red    .stat-icon { background: var(--red-dim);    color: var(--red);    }
+        .c-yellow .stat-value { color: var(--yellow); } .c-yellow .stat-icon { background: var(--yellow-dim); color: var(--yellow); }
+        .c-blue   .stat-value { color: var(--blue);   } .c-blue   .stat-icon { background: var(--blue-dim);   color: var(--blue);   }
+        .c-purple .stat-value { color: var(--purple); } .c-purple .stat-icon { background: var(--purple-dim); color: var(--purple); }
+        .c-neg    .stat-value { color: var(--red);    } .c-neg    .stat-icon { background: var(--red-dim);    color: var(--red);    }
+
+        /* ── Tab Navigation ── */
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+        .tab-btn {
+            padding: 10px 22px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--muted);
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color .2s, border-color .2s;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Charts Grid ── */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.2rem;
+            margin-bottom: 1.2rem;
+        }
+        .chart-card-full { grid-column: 1 / -1; }
+        @media(max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.4rem;
+        }
+        .chart-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.2rem;
+        }
+        .chart-card-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chart-card-title i { color: var(--accent); }
+        .chart-wrap { position: relative; }
+        .chart-wrap canvas { max-height: 280px; }
+        .pie-wrap { display: flex; align-items: center; gap: 1.5rem; }
+        .pie-wrap canvas { max-height: 240px; flex-shrink: 0; }
+        .pie-legend { flex: 1; min-width: 0; }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .legend-item:last-child { border-bottom: none; }
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .legend-name { flex: 1; color: var(--muted); text-transform: capitalize; }
+        .legend-val  { font-weight: 600; white-space: nowrap; }
+
+        /* ── Stats Row (mini) ── */
+        .mini-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+        }
+        @media(max-width: 600px) { .mini-stats-grid { grid-template-columns: 1fr; } }
+
+        .mini-stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .mini-stat-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            background: rgba(108,142,245,.12);
+            color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .mini-stat-val {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .mini-stat-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-top: 2px;
+        }
+
+        /* ── Table Card ── */
+        .table-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .table-card-header {
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .table-card-header h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .table-card-header h3 i { color: var(--muted); }
+        .badge {
+            background: rgba(108,142,245,.12);
+            color: var(--accent);
+            border: 1px solid rgba(108,142,245,.25);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        thead tr { background: var(--surface2); }
+        thead th {
+            padding: 11px 16px;
+            text-align: left;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background .15s;
+        }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: var(--surface2); }
+        tbody td { padding: 12px 16px; vertical-align: middle; }
+
+        .tipe-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .tipe-pemasukan   { background: var(--green-dim);  color: var(--green);  }
+        .tipe-pengeluaran { background: var(--red-dim);    color: var(--red);    }
+        .tipe-investasi   { background: var(--blue-dim);   color: var(--blue);   }
+
+        .nominal-cell { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .nominal-pemasukan   { color: var(--green); }
+        .nominal-pengeluaran { color: var(--red); }
+        .nominal-investasi   { color: var(--blue); }
+
+        .btn-hapus {
+            background: transparent;
+            border: 1px solid rgba(248,113,113,.35);
+            color: var(--red);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, color .2s;
+            font-family: 'Inter', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-hapus:hover { background: var(--red); color: #fff; border-color: transparent; }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 1rem;
+            color: var(--muted);
+        }
+        .empty-state i { font-size: 2.5rem; display: block; margin-bottom: 1rem; opacity: .3; }
+        .empty-state p { font-size: 0.9rem; }
+
+        /* ── Responsive ── */
+        @media(max-width: 640px) {
+            .nav-right { display: none; }
+            .filter-row { flex-direction: column; }
+            .filter-group { min-width: 100%; }
+            .pie-wrap { flex-direction: column; }
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+        /* ── Export Excel Button ── */
+        .btn-excel {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s, transform .1s, box-shadow .2s;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            line-height: 1.4;
+            box-shadow: 0 2px 8px rgba(22,163,74,.3);
+        }
+        .btn-excel:hover  { opacity: .88; box-shadow: 0 4px 14px rgba(22,163,74,.45); }
+        .btn-excel:active { transform: scale(.97); }
+
+        /* ── New Feature Banner ── */
+        .new-feature-banner {
+            background: linear-gradient(135deg, rgba(52,211,153,.08), rgba(96,165,250,.08));
+            border: 1px solid rgba(52,211,153,.3);
+            border-radius: var(--radius-sm);
+            padding: 12px 18px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text);
+            position: relative;
+        }
+        .new-feature-banner .banner-icon {
+            width: 36px; height: 36px;
+            background: rgba(52,211,153,.15);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--green);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .new-feature-banner .banner-tag {
+            background: var(--green);
+            color: #000;
+            font-size: 0.62rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            margin-right: 2px;
+        }
+        .new-feature-banner .banner-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: color .2s;
+        }
+        .new-feature-banner .banner-close:hover { color: var(--text); }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans">
-    
-    <!-- Navbar -->
-    <nav class="bg-blue-600 text-white shadow-lg mb-8">
-        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold"><i class="fas fa-wallet mr-2"></i>Finance Dashboard</h1>
-            <p class="text-sm font-medium">Telegram Bot Analytics</p>
+<body>
+
+    <!-- ── Navbar ── -->
+    <nav>
+        <div class="nav-brand">
+            <i class="fas fa-wallet"></i> Finance Dashboard
+        </div>
+        <div class="nav-right">
+            <span class="nav-month-pill"><i class="fas fa-calendar-alt"></i> {{ month }}</span>
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <div class="container mx-auto px-6">
-        
+    <div class="container">
+
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="p-4 mb-6 rounded-lg font-medium shadow-sm {% if category == 'success' %}bg-green-100 text-green-800 border-l-4 border-green-500{% else %}bg-red-100 text-red-800 border-l-4 border-red-500{% endif %}">
+                    <div class="flash {{ category }}">
+                        <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
                         {{ message }}
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <!-- Filter Form -->
-        <div class="bg-white p-6 rounded-xl shadow-sm mb-8">
-            <h2 class="text-lg text-gray-700 font-semibold mb-4 border-b pb-2"><i class="fas fa-filter mr-2 text-blue-500"></i>Filter Data Laporan</h2>
-            <form action="{{ url_for('index') }}" method="GET" class="flex flex-col md:flex-row gap-4 items-end">
-                <div class="w-full md:w-1/3">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Bulan Transaksi (YYYY-MM)</label>
-                    <input type="month" name="month" value="{{ month }}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="w-full md:w-1/3">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Filter User ID (Telegram)</label>
-                    <input type="text" name="user_id" value="{{ user_id_filter }}" placeholder="Contoh: 12345678" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="w-full md:w-1/3">
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
-                        Lihat Data
-                    </button>
+        <!-- ── Banner: Fitur Baru ── -->
+        <div class="new-feature-banner" id="newFeatureBanner">
+            <div class="banner-icon"><i class="fas fa-file-excel"></i></div>
+            <div>
+                <span class="banner-tag">✨ Baru</span>
+                <strong>Export Excel tersedia!</strong>
+                Sekarang kamu bisa mengunduh data transaksi (per user / semua user) langsung ke format <strong>.xlsx</strong>.
+                Gunakan tombol <strong>⬇ Export Excel</strong> di bawah Filter atau di tab Transaksi.
+            </div>
+            <button class="banner-close" onclick="dismissBanner()" title="Tutup"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- ── Filter Card ── -->
+        <div class="filter-card">
+            <div class="section-title"><i class="fas fa-sliders-h"></i> Filter Data</div>
+            <form id="filterForm" action="{{ url_for('index') }}" method="GET">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>Bulan</label>
+                        <input type="month" id="monthInput" name="month" value="{{ month }}">
+                    </div>
+                    <div class="filter-group">
+                        <label>Filter User</label>
+                        <div class="select-wrap">
+                            <select name="user_id" id="userSelect">
+                                <option value="">Semua User</option>
+                                {% for u in all_users %}
+                                    <option value="{{ u.user_id }}" {% if user_id_filter == u.user_id|string %}selected{% endif %}>
+                                        {{ u.first_name }}{% if u.last_name %} {{ u.last_name }}{% endif %}
+                                        {% if u.username %}(@{{ u.username }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-group" style="flex:0;">
+                        <label>&nbsp;</label>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button type="submit" class="btn-primary" id="btnTerapkan">
+                                <i class="fas fa-search"></i> Terapkan
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn-ghost">Reset</a>
+                            <a id="btnExcelFilter"
+                               href="{{ url_for('export_excel') }}?month={{ month }}{% if user_id_filter %}&user_id={{ user_id_filter }}{% endif %}"
+                               class="btn-excel" title="Export transaksi yang sedang difilter ke Excel">
+                                <i class="fas fa-file-excel"></i> Export Excel
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
 
-        <!-- Summary Widgets -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- ── 5 Summary Cards ── -->
+        <div class="section-title"><i class="fas fa-chart-pie"></i> Ringkasan Keuangan — {{ month }}</div>
+        <div class="summary-grid">
+
             <!-- Pemasukan -->
-            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 uppercase font-semibold">Total Pemasukan</p>
-                    <p class="text-3xl font-bold text-gray-800">Rp {{ "{:,.0f}".format(pemasukan).replace(',', '.') }}</p>
+            <div class="stat-card c-green">
+                <div class="stat-top">
+                    <div class="stat-label">Total Pemasukan</div>
+                    <div class="stat-icon"><i class="fas fa-arrow-trend-up"></i></div>
                 </div>
-                <div class="bg-green-100 p-3 rounded-full text-green-600">
-                    <i class="fas fa-arrow-up fa-2x"></i>
-                </div>
+                <div class="stat-value">Rp {{ "{:,.0f}".format(pemasukan).replace(',', '.') }}</div>
+                <div class="stat-sub">Uang masuk bulan ini</div>
             </div>
+
             <!-- Pengeluaran -->
-            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500 flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 uppercase font-semibold">Total Pengeluaran</p>
-                    <p class="text-3xl font-bold text-gray-800">Rp {{ "{:,.0f}".format(pengeluaran).replace(',', '.') }}</p>
+            <div class="stat-card c-red">
+                <div class="stat-top">
+                    <div class="stat-label">Total Pengeluaran</div>
+                    <div class="stat-icon"><i class="fas fa-arrow-trend-down"></i></div>
                 </div>
-                <div class="bg-red-100 p-3 rounded-full text-red-600">
-                    <i class="fas fa-arrow-down fa-2x"></i>
+                <div class="stat-value">Rp {{ "{:,.0f}".format(pengeluaran).replace(',', '.') }}</div>
+                <div class="stat-sub">Uang keluar bulan ini</div>
+            </div>
+
+            <!-- Investasi / Tabungan -->
+            <div class="stat-card c-yellow">
+                <div class="stat-top">
+                    <div class="stat-label">Investasi / Tabungan</div>
+                    <div class="stat-icon"><i class="fas fa-piggy-bank"></i></div>
+                </div>
+                <div class="stat-value">Rp {{ "{:,.0f}".format(investasi).replace(',', '.') }}</div>
+                <div class="stat-sub">Aset & tabungan</div>
+            </div>
+
+            <!-- Uang Cash Saat Ini -->
+            <div class="stat-card {% if saldo_cash >= 0 %}c-blue{% else %}c-neg{% endif %}">
+                <div class="stat-top">
+                    <div class="stat-label">Uang Cash Saat Ini</div>
+                    <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+                </div>
+                <div class="stat-value">Rp {{ "{:,.0f}".format(saldo_cash).replace(',', '.') }}</div>
+                <div class="stat-sub">Pemasukan − Pengeluaran</div>
+            </div>
+
+            <!-- Saldo Bersih -->
+            <div class="stat-card {% if saldo_bersih >= 0 %}c-purple{% else %}c-neg{% endif %}">
+                <div class="stat-top">
+                    <div class="stat-label">Saldo Bersih</div>
+                    <div class="stat-icon"><i class="fas fa-balance-scale"></i></div>
+                </div>
+                <div class="stat-value">Rp {{ "{:,.0f}".format(saldo_bersih).replace(',', '.') }}</div>
+                <div class="stat-sub">Setelah investasi</div>
+            </div>
+
+        </div>
+
+        <!-- ── Tab Navigation ── -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview">
+                <i class="fas fa-chart-area"></i> Overview
+            </button>
+            <button class="tab-btn" onclick="switchTab('transaksi')" id="tab-transaksi">
+                <i class="fas fa-list-ul"></i> Transaksi
+                <span class="badge" style="font-size:.65rem;margin-left:2px;">{{ transactions|length }}</span>
+            </button>
+        </div>
+
+        <!-- ══════════════════════════════════════════ -->
+        <!-- TAB: OVERVIEW                             -->
+        <!-- ══════════════════════════════════════════ -->
+        <div id="panel-overview" class="tab-panel active">
+
+            <!-- Mini Stats Row -->
+            <div class="mini-stats-grid">
+                <div class="mini-stat">
+                    <div class="mini-stat-icon"><i class="fas fa-receipt"></i></div>
+                    <div class="mini-stat-body">
+                        <div class="mini-stat-val">{{ stats.total_tx }}</div>
+                        <div class="mini-stat-label">Total Transaksi</div>
+                    </div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon"><i class="fas fa-calendar-day"></i></div>
+                    <div class="mini-stat-body">
+                        <div class="mini-stat-val">Rp {{ "{:,.0f}".format(stats.avg_daily_pengeluaran).replace(',', '.') }}</div>
+                        <div class="mini-stat-label">Rata-rata Pengeluaran / Hari</div>
+                    </div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon"><i class="fas fa-fire"></i></div>
+                    <div class="mini-stat-body">
+                        <div class="mini-stat-val" style="text-transform:capitalize;font-size:1rem;word-break:break-word;">
+                            {{ stats.top_category.replace('_',' ') if stats.top_category else '-' }}
+                        </div>
+                        <div class="mini-stat-label">Kategori Pengeluaran Terbesar</div>
+                    </div>
                 </div>
             </div>
-            <!-- Saldo -->
-            <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 {% if saldo >= 0 %}border-blue-500{% else %}border-red-500{% endif %} flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 uppercase font-semibold">Sisa Saldo Net</p>
-                    <p class="text-3xl font-bold {% if saldo >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">Rp {{ "{:,.0f}".format(saldo).replace(',', '.') }}</p>
+
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+
+                <!-- Pie Chart: Distribusi Pengeluaran -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div class="chart-card-title">
+                            <i class="fas fa-chart-pie"></i> Distribusi Pengeluaran
+                        </div>
+                    </div>
+                    {% if pie_chart_json and (pie_chart_json | from_json).labels | length > 0 %}
+                        <div class="pie-wrap">
+                            <div style="width:200px;height:200px;flex-shrink:0;">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                            <div class="pie-legend" id="pieLegend"></div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state" style="padding:2rem 1rem;">
+                            <i class="fas fa-chart-pie"></i>
+                            <p>Belum ada data pengeluaran bulan ini.</p>
+                        </div>
+                    {% endif %}
                 </div>
-                <div class="{% if saldo >= 0 %}bg-blue-100 text-blue-600{% else %}bg-red-100 text-red-600{% endif %} p-3 rounded-full">
-                    <i class="fas fa-coins fa-2x"></i>
+
+                <!-- Bar Chart: Pemasukan vs Pengeluaran vs Investasi -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div class="chart-card-title">
+                            <i class="fas fa-chart-bar"></i> Ringkasan Bulanan
+                        </div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Line Chart: Tren Harian -->
+                <div class="chart-card chart-card-full">
+                    <div class="chart-card-header">
+                        <div class="chart-card-title">
+                            <i class="fas fa-chart-line"></i> Tren Transaksi Harian — {{ month }}
+                        </div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════ -->
+        <!-- TAB: TRANSAKSI                            -->
+        <!-- ══════════════════════════════════════════ -->
+        <div id="panel-transaksi" class="tab-panel">
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3><i class="fas fa-list-ul"></i> Daftar Transaksi — {{ month }}</h3>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span class="badge">{{ transactions|length }} data</span>
+                        <a id="btnTableExcel"
+                           href="{{ url_for('export_excel') }}?month={{ month }}{% if user_id_filter %}&user_id={{ user_id_filter }}{% endif %}"
+                           class="btn-excel" style="padding:6px 14px;font-size:.8rem;"
+                           title="Download tabel ini sebagai Excel">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </a>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tanggal &amp; Waktu</th>
+                                <th>User</th>
+                                <th>Tipe</th>
+                                <th>Item</th>
+                                <th>Kategori</th>
+                                <th>Nominal (Rp)</th>
+                                <th style="text-align:center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if transactions %}
+                                {% for tx in transactions %}
+                                <tr>
+                                    <td style="color:var(--muted2);font-size:.78rem;font-weight:600;">T-{{ tx.id }}</td>
+                                    <td style="white-space:nowrap;color:var(--muted);font-size:.8rem;">
+                                        {{ tx.timestamp.strftime('%d %b %Y, %H:%M') if tx.timestamp else '-' }}
+                                    </td>
+                                    <td style="font-size:.82rem;">
+                                        {% for u in all_users %}
+                                            {% if u.user_id == tx.user_id %}
+                                                <span style="font-weight:600;">{{ u.first_name }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                        <br><span style="font-size:.72rem;color:var(--muted2);">{{ tx.user_id }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="tipe-badge tipe-{{ tx.tipe|lower }}">
+                                            {% if tx.tipe|lower == 'pemasukan' %}<i class="fas fa-plus"></i>
+                                            {% elif tx.tipe|lower == 'pengeluaran' %}<i class="fas fa-minus"></i>
+                                            {% else %}<i class="fas fa-piggy-bank"></i>{% endif %}
+                                            {{ tx.tipe|capitalize }}
+                                        </span>
+                                    </td>
+                                    <td style="font-weight:500;">{{ tx.item }}</td>
+                                    <td style="color:var(--muted);font-size:.8rem;font-style:italic;">
+                                        {{ tx.kategori.replace('_',' ') if tx.kategori else '-' }}
+                                    </td>
+                                    <td class="nominal-cell nominal-{{ tx.tipe|lower }}">
+                                        {{ "{:,.0f}".format(tx.nominal).replace(',', '.') }}
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <form action="{{ url_for('delete_tx', tx_id=tx.id) }}" method="POST"
+                                              onsubmit="return confirm('Hapus transaksi [{{ tx.item }}]?');">
+                                            <button type="submit" class="btn-hapus">
+                                                <i class="fas fa-trash-alt"></i> Hapus
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <i class="fas fa-folder-open"></i>
+                                            <p>Tidak ada transaksi untuk <strong>{{ month }}</strong>{% if user_id_filter %} dengan filter ini{% endif %}.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- Data Table -->
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-12">
-            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                <h3 class="text-lg font-semibold text-gray-800"><i class="fas fa-list-ul mr-2 text-gray-500"></i>Daftar Transaksi Terbaru ({{ month }})</h3>
-                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">{{ transactions|length }} Data ditemukan</span>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left text-gray-500">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Tanggal Waktu</th>
-                            <th scope="col" class="px-6 py-3">User ID</th>
-                            <th scope="col" class="px-6 py-3">Tipe</th>
-                            <th scope="col" class="px-6 py-3">Detail Item</th>
-                            <th scope="col" class="px-6 py-3">Kategori</th>
-                            <th scope="col" class="px-6 py-3">Nominal (Rp)</th>
-                            <th scope="col" class="px-6 py-3 text-center">Aksi (Hapus)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if transactions %}
-                            {% for tx in transactions %}
-                            <tr class="bg-white border-b hover:bg-gray-50 transition duration-150">
-                                <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">{{ tx.timestamp.strftime('%d-%m-%Y %H:%M') if tx.timestamp else '-' }}</td>
-                                <td class="px-6 py-4 text-gray-500">{{ tx.user_id }}</td>
-                                <td class="px-6 py-4 font-semibold {% if tx.tipe|lower == 'pemasukan' %}text-green-600{% elif tx.tipe|lower == 'pengeluaran' %}text-red-500{% else %}text-blue-500{% endif %}">
-                                    {{ tx.tipe|capitalize }}
-                                </td>
-                                <td class="px-6 py-4 text-gray-800">{{ tx.item }}</td>
-                                <td class="px-6 py-4 text-gray-500 italic">{{ tx.kategori }}</td>
-                                <td class="px-6 py-4 font-bold text-gray-800">
-                                    {{ "{:,.0f}".format(tx.nominal).replace(',', '.') }}
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    <!-- Form Hapus Data -->
-                                    <form action="{{ url_for('delete_tx', tx_id=tx.id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data [{{ tx.item }}] ini permanen?');">
-                                        <button type="submit" class="text-red-600 hover:text-white bg-transparent hover:bg-red-600 border border-red-600 font-medium rounded-lg text-xs px-3 py-1.5 text-center transition-colors">
-                                            <i class="fas fa-trash-alt mr-1"></i>Hapus
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
-                                    <i class="fas fa-folder-open mb-3 fa-3x text-gray-300"></i>
-                                    <p class="text-base font-medium">Bulan {{ month }} belum ada data transaksi yang dicatat.</p>
-                                </td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-    </div>
+    </div><!-- /container -->
+
+    <!-- ── Chart.js + Scripts ── -->
+    <script>
+    // ── Data from server ────────────────────────────────────────────
+    const PIE_DATA    = {{ pie_chart_json | safe }};
+    const DAILY_DATA  = {{ daily_chart_json | safe }};
+    const SUMMARY = {
+        pemasukan:   {{ pemasukan }},
+        pengeluaran: {{ pengeluaran }},
+        investasi:   {{ investasi }},
+    };
+
+    // ── Chart.js Global Defaults ─────────────────────────────────────
+    Chart.defaults.color = '#8b93b0';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+    Chart.defaults.plugins.legend.display = false;
+
+    // ── Pie Chart: Distribusi Pengeluaran ───────────────────────────
+    const PIE_COLORS = [
+        '#f87171','#fb923c','#fbbf24','#a3e635','#34d399',
+        '#22d3ee','#60a5fa','#818cf8','#c084fc','#f472b6'
+    ];
+
+    function formatRp(val) {
+        return 'Rp ' + new Intl.NumberFormat('id-ID').format(val);
+    }
+
+    const pieCtx = document.getElementById('pieChart');
+    if (pieCtx && PIE_DATA.labels.length > 0) {
+        new Chart(pieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: PIE_DATA.labels,
+                datasets: [{
+                    data: PIE_DATA.data,
+                    backgroundColor: PIE_COLORS.slice(0, PIE_DATA.labels.length),
+                    borderWidth: 2,
+                    borderColor: '#13151f',
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                cutout: '62%',
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ' ' + formatRp(ctx.raw),
+                        }
+                    }
+                }
+            }
+        });
+
+        // Custom legend
+        const legend = document.getElementById('pieLegend');
+        if (legend) {
+            const totalPie = PIE_DATA.data.reduce((a, b) => a + b, 0);
+            PIE_DATA.labels.forEach((label, i) => {
+                const pct = totalPie > 0 ? ((PIE_DATA.data[i] / totalPie) * 100).toFixed(1) : 0;
+                legend.innerHTML += `
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></div>
+                        <span class="legend-name">${label.replace(/_/g,' ')}</span>
+                        <span class="legend-val" style="color:${PIE_COLORS[i % PIE_COLORS.length]}">${pct}%</span>
+                    </div>`;
+            });
+        }
+    }
+
+    // ── Bar Chart: Ringkasan Bulanan ─────────────────────────────────
+    const barCtx = document.getElementById('barChart');
+    if (barCtx) {
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Pemasukan', 'Pengeluaran', 'Investasi'],
+                datasets: [{
+                    data: [SUMMARY.pemasukan, SUMMARY.pengeluaran, SUMMARY.investasi],
+                    backgroundColor: ['rgba(52,211,153,.7)', 'rgba(248,113,113,.7)', 'rgba(251,191,36,.7)'],
+                    borderColor:     ['#34d399', '#f87171', '#fbbf24'],
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ' ' + formatRp(ctx.raw)
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(42,45,69,.6)' } },
+                    y: {
+                        grid: { color: 'rgba(42,45,69,.6)' },
+                        ticks: {
+                            callback: val => {
+                                if (val >= 1000000) return 'Rp ' + (val/1000000).toFixed(1) + 'jt';
+                                if (val >= 1000)    return 'Rp ' + (val/1000).toFixed(0) + 'rb';
+                                return val;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Line Chart: Tren Harian ──────────────────────────────────────
+    const lineCtx = document.getElementById('lineChart');
+    if (lineCtx) {
+        new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: DAILY_DATA.labels,
+                datasets: [
+                    {
+                        label: 'Pemasukan',
+                        data: DAILY_DATA.pemasukan,
+                        borderColor: '#34d399',
+                        backgroundColor: 'rgba(52,211,153,.08)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Pengeluaran',
+                        data: DAILY_DATA.pengeluaran,
+                        borderColor: '#f87171',
+                        backgroundColor: 'rgba(248,113,113,.08)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Investasi',
+                        data: DAILY_DATA.investasi,
+                        borderColor: '#fbbf24',
+                        backgroundColor: 'rgba(251,191,36,.06)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 6,
+                        borderWidth: 2,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true,
+                        labels: { boxWidth: 12, padding: 16, color: '#8b93b0' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.dataset.label}: ${formatRp(ctx.raw)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(42,45,69,.5)' },
+                        ticks: { maxTicksLimit: 15 }
+                    },
+                    y: {
+                        grid: { color: 'rgba(42,45,69,.5)' },
+                        ticks: {
+                            callback: val => {
+                                if (val >= 1000000) return 'Rp ' + (val/1000000).toFixed(1) + 'jt';
+                                if (val >= 1000)    return 'Rp ' + (val/1000).toFixed(0) + 'rb';
+                                return val;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Tab Switching ────────────────────────────────────────────────
+    function switchTab(name) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('panel-' + name).classList.add('active');
+        document.getElementById('tab-' + name).classList.add('active');
+        // Persist tab in sessionStorage
+        sessionStorage.setItem('activeTab', name);
+    }
+
+    // Restore tab on page load
+    (function () {
+        const saved = sessionStorage.getItem('activeTab');
+        if (saved && document.getElementById('panel-' + saved)) {
+            switchTab(saved);
+        }
+    })();
+
+    // ── New Feature Banner ───────────────────────────────────────────
+    function dismissBanner() {
+        const banner = document.getElementById('newFeatureBanner');
+        if (banner) {
+            banner.style.opacity = '0';
+            banner.style.transition = 'opacity .3s';
+            setTimeout(() => banner.remove(), 300);
+        }
+        localStorage.setItem('excelBannerDismissed', '1');
+    }
+    // Auto-hide jika sudah pernah dismiss
+    (function () {
+        if (localStorage.getItem('excelBannerDismissed') === '1') {
+            const b = document.getElementById('newFeatureBanner');
+            if (b) b.remove();
+        }
+    })();
+
+    // ── Update Export URL saat filter berubah ────────────────────────
+    (function () {
+        const monthInput  = document.getElementById('monthInput');
+        const userSelect  = document.getElementById('userSelect');
+        const excelBtns   = document.querySelectorAll('#btnExcelFilter, #btnTableExcel');
+        const baseUrl     = "{{ url_for('export_excel') }}";
+
+        function updateExcelLinks() {
+            const m  = monthInput  ? monthInput.value  : '{{ month }}';
+            const u  = userSelect  ? userSelect.value  : '';
+            let url  = baseUrl + '?month=' + encodeURIComponent(m);
+            if (u)   url += '&user_id=' + encodeURIComponent(u);
+            excelBtns.forEach(btn => btn.href = url);
+        }
+
+        if (monthInput) monthInput.addEventListener('change', updateExcelLinks);
+        if (userSelect) userSelect.addEventListener('change', updateExcelLinks);
+        // Inisialisasi
+        updateExcelLinks();
+    })();
+    </script>
 
 </body>
 </html>
