@@ -4,6 +4,7 @@ import sys
 from config import BOT_TOKEN
 import database
 from handlers import register_all_handlers
+from error_notifier import setup_global_error_handler, notify_error
 
 # Initialize bot
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -34,6 +35,9 @@ def shutdown_handler(signum, frame):
     sys.exit(0)
 
 if __name__ == "__main__":
+    # ─── Aktifkan notifikasi error ke Telegram admin ────────────────────────
+    setup_global_error_handler()
+
     # Setup auto-suggest / menu perintah di Telegram
     bot.set_my_commands([
         telebot.types.BotCommand("/start",   "Menjalankan ulang / info bot"),
@@ -55,4 +59,12 @@ if __name__ == "__main__":
     # Kirim notifikasi ke semua user bahwa bot sudah nyala
     broadcast_message("🟢 *Bot transaksi AI sudah nyala!*\nLaptop Yuhu sedang online. Bot siap menerima pesan kamu.")
 
-    bot.infinity_polling()
+    try:
+        bot.infinity_polling()
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[bot] ❌ Bot mati karena exception:\n{tb}")
+        notify_error(tb, title="🚨 Bot Mati — Crash saat Polling")
+        sys.exit(1)
+
