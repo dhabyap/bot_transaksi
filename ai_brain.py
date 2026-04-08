@@ -2,27 +2,13 @@ import os
 import json
 from google import genai
 from google.genai import types 
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini AI
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if GEMINI_API_KEY:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-else:
-    client = None
-
-def get_json_data_from_text(text: str) -> dict:
-    """
-    Mengirim teks pengguna ke Gemini API dan mengembalikan dictionary JSON untuk jurnal keuangan pribadi.
-    """
-    if not client:
-        return {"error": True, "message": "API Key tidak ditemukan"}
-
-    # System instruction yang padat agar model Flash lebih cepat merespons
-    system_instruction = """
+# System instruction yang padat agar model AI lebih cepat merespons
+SYSTEM_INSTRUCTION = """
 Kamu adalah asisten AI spesialis pencatatan keuangan pribadi. Tugasmu adalah mengekstrak data dari pesan pengguna ke format JSON murni.
 
 SKEMA JSON:
@@ -37,30 +23,79 @@ ATURAN KETAT:
 1. Konversi singkatan angka: "k" / "rb" = 1000, "jt" / "juta" = 1000000.
 2. Fokus pada uang masuk, keluar, atau investasi.
 3. Jika input tidak valid atau bukan transaksi, balas HANYA dengan: {"error": true}.
-    """
+"""
+
+def call_gemini(text: str) -> str:
+    """Memanggil Google Gemini API."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY tidak ditemukan")
     
-    try:
-        # Menggunakan model Flash (gratis & cepat)
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=text, # Menggunakan parameter 'text' dari fungsi, bukan 'prompt'
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json", # Paksa AI agar fokus menghasilkan JSON
-                temperature=0.1
-            )
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model='gemini-2.0-flash', # Updated to latest flash model
+        contents=text,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_INSTRUCTION,
+            response_mime_type="application/json",
+            temperature=0.1
         )
-        
-        response_text = response.text.strip()
-        
-        if response_text.startswith("```json"):
-            response_text = response_text[7:-3].strip()
-        elif response_text.startswith("```"):
-            response_text = response_text[3:-3].strip()
+    )
+    return response.text.strip()
+
+def call_groq(text: str) -> str:
+    """Memanggil Groq API (OpenAI Compatible)."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY tidak ditemukan")
+    
+    client = OpenAI(
+        base_url="https://api.groq.com/openai/v1",
+        api_key=api_key
+    )
+    
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile", # High quality model available on Groq
+        messages=[
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "user", "content": text}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.1
+    )
+    return response.choices[0].message.content.strip()
+
+def get_json_data_from_text(text: str) -> dict:
+    """
+    Dispatcher utama yang menggunakan mekanisme fallback antar LLM provider.
+    """
+    fallback_order = os.getenv("LLM_FALLBACK_ORDER", "gemini,groq").split(",")
+    
+    for provider in fallback_order:
+        provider = provider.strip().lower()
+        try:
+            print(f"[ai_brain] Mencoba menggunakan provider: {provider}...")
             
-        data = json.loads(response_text)
-        return data
-        
-    except Exception as e:
-        print(f"Error calling Gemini AI: {e}")
-        return {"error": True}
+            if provider == "gemini":
+                response_text = call_gemini(text)
+            elif provider == "groq":
+                response_text = call_groq(text)
+            else:
+                continue # Provider tidak dikenal
+                
+            # Bersihkan output markdown jika ada
+            if response_text.startswith("```json"):
+                response_text = response_text[7:-3].strip()
+            elif response_text.startswith("```"):
+                response_text = response_text[3:-3].strip()
+                
+            data = json.loads(response_text)
+            print(f"[ai_brain] Berhasil menggunakan {provider}.")
+            return data
+            
+        except Exception as e:
+            print(f"[ai_brain] Gagal menggunakan {provider}: {e}")
+            continue # Lanjut ke provider berikutnya
+            
+    print("[ai_brain] Semua LLM provider gagal.")
+    return {"error": True}

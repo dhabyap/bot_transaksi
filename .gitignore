@@ -49,3 +49,6 @@ finance_bot.db
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Sub-projects
+laravel_version/
