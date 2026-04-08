@@ -5,9 +5,13 @@ from config import BOT_TOKEN
 import database
 from handlers import register_all_handlers
 from error_notifier import setup_global_error_handler, notify_error
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Initialize bot
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# Initialize scheduler
+scheduler = BackgroundScheduler(timezone="Asia/Jakarta")
 
 # Initialize database
 database.init_db()
@@ -28,9 +32,20 @@ def broadcast_message(text):
     except Exception as e:
         print(f"[broadcast] Error: {e}")
 
+def daily_reminder_job():
+    """Job scheduler untuk mengingatkan user setiap sore/malam."""
+    print("[scheduler] Mengirimkan pengingat harian ke semua user...")
+    pesan = "👋 *Halo semuanya!*\nJangan lupa ya isi transaksi kalian hari ini agar keuangan makin rapi! 📊"
+    broadcast_message(pesan)
+
 def shutdown_handler(signum, frame):
     """Handler saat bot dimatikan (CTRL+C / SIGTERM)."""
     print("\n[bot] Mematikan bot, mengirim notifikasi ke semua user...")
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+    except Exception as e:
+        print(f"Error shutting down scheduler: {e}")
     broadcast_message("🔴 *Bot mati!*\nLaptop Yuhu sedang offline. Bot tidak dapat menerima pesan sementara.")
     sys.exit(0)
 
@@ -55,6 +70,11 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, shutdown_handler)
 
     print("Bot is running...")
+
+    # Mulai scheduler harian
+    scheduler.add_job(daily_reminder_job, 'cron', hour=17, minute=0)
+    scheduler.start()
+    print("[bot] Scheduler started (Daily reminder at 17:00 WIB)")
 
     # Kirim notifikasi ke semua user bahwa bot sudah nyala
     broadcast_message("🟢 *Bot transaksi AI sudah nyala!*\nLaptop Yuhu sedang online. Bot siap menerima pesan kamu.")
