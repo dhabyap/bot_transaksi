@@ -1,13 +1,10 @@
 import database
 from datetime import datetime
+from telebot import types
 
 def register_handlers(bot):
-    @bot.message_handler(commands=['start', 'help'])
-    def send_welcome(message):
-        database.upsert_user(message.from_user)
-        
-        # Teks disesuaikan murni untuk keuangan pribadi
-        welcome_text = (
+    def get_welcome_text():
+        return (
             "🤖 *Bot Jurnal Keuangan Pribadi*\n\n"
             "Halo! Saya adalah asisten AI pribadimu untuk mencatat arus kas dan mengawal perjalananmu menuju *financial freedom*.\n\n"
             "📝 *Cara Mencatat:*\n"
@@ -26,7 +23,44 @@ def register_handlers(bot):
             "📊 /export `2026-03` - Excel bulan tertentu\n"
             "📊 /export `all` - Semua transaksi (semua bulan)"
         )
-        bot.reply_to(message, welcome_text, parse_mode='Markdown')
+
+    @bot.message_handler(commands=['start', 'help'])
+    def send_welcome(message):
+        database.upsert_user(message.from_user)
+        user_id = message.from_user.id
+        
+        # Cek status disclaimer
+        if not database.get_disclaimer_status(user_id):
+            disclaimer_text = (
+                "⚠️ *Perhatian Penting!*\n\n"
+                "Bot ini masih dalam tahap *Experimental* 🧪\n\n"
+                "Selama penggunaan, Anda mungkin akan menerima beberapa notifikasi otomatis, "
+                "pengingat harian, dan pesan lainnya yang mungkin terasa seperti spam. "
+                "Kami sedang terus melakukan pengembangan dan mohon maaf atas ketidaknyamanan ini.\n\n"
+                "Silakan tekan tombol di bawah jika Anda setuju untuk melanjutkan."
+            )
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ Saya Mengerti & Lanjutkan", callback_data="accept_disclaimer"))
+            bot.reply_to(message, disclaimer_text, parse_mode='Markdown', reply_markup=markup)
+            return
+
+        bot.reply_to(message, get_welcome_text(), parse_mode='Markdown')
+
+    @bot.callback_query_handler(func=lambda call: call.data == "accept_disclaimer")
+    def handle_disclaimer_acceptance(call):
+        user_id = call.from_user.id
+        database.update_disclaimer_status(user_id, 1)
+        
+        # Beri feedback & hapus pesan disclaimer, ganti dengan welcome message
+        bot.answer_callback_query(call.id, "Terima kasih! Selamat menggunakan bot.")
+        
+        # Edit pesan disclaimer menjadi welcome message
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=get_welcome_text(),
+            parse_mode='Markdown'
+        )
 
     @bot.message_handler(commands=['profile'])
     def send_profile(message):

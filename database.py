@@ -73,10 +73,18 @@ def init_db():
             language_code VARCHAR(10),
             first_seen DATETIME,
             last_active DATETIME,
-            message_count INT DEFAULT 0
+            message_count INT DEFAULT 0,
+            has_accepted_disclaimer TINYINT(1) DEFAULT 0
         )
     ''')
 
+    # Migration: Tambahkan kolom if not exists (untuk database yang sudah ada)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN has_accepted_disclaimer TINYINT(1) DEFAULT 0")
+        conn.commit()
+    except:
+        pass # Kolom sudah ada
+    
     # Create chat_logs table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chat_logs (
@@ -120,6 +128,26 @@ def upsert_user(user):
     conn.commit()
     cursor.close()
     conn.close()
+
+def get_disclaimer_status(user_id):
+    """Cek apakah user sudah menyetujui disclaimer experimental."""
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT has_accepted_disclaimer FROM users WHERE user_id = %s', (user_id,))
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return result['has_accepted_disclaimer'] if result else 0
+
+def update_disclaimer_status(user_id, status=1):
+    """Update status persetujuan disclaimer user."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET has_accepted_disclaimer = %s WHERE user_id = %s', (status, user_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 
 def insert_transaction(user_id, tipe, item, nominal, kategori):
     conn = get_connection()
