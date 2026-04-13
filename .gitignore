@@ -52,3 +52,6 @@ Thumbs.db
 
 # Sub-projects
 laravel_version/
+
+# Issues Document
+issues.md
