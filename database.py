@@ -562,3 +562,71 @@ def get_all_transactions_export(month_str=None, user_id=None):
     cursor.close()
     conn.close()
     return results
+
+def get_daily_summary_per_user(user_id, date_str):
+    """
+    Ambil total per tipe transaksi untuk user tertentu pada tanggal tertentu.
+    date_str format: 'YYYY-MM-DD'
+    Return: dict {'pemasukan': X, 'pengeluaran': Y, 'investasi': Z}
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    sql = '''
+        SELECT tipe, SUM(nominal) as total
+        FROM transactions 
+        WHERE user_id = %s AND DATE(timestamp) = %s
+        GROUP BY tipe
+    '''
+    cursor.execute(sql, (user_id, date_str))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    report = {"pemasukan": 0, "pengeluaran": 0, "investasi": 0}
+    for row in results:
+        tipe = row['tipe'].lower()
+        if tipe in report:
+            report[tipe] = row['total']
+            
+    return report
+
+def get_weekly_summary_per_user(user_id, start_date, end_date):
+    """
+    Ambil total pengeluaran per kategori untuk user dalam rentang tanggal.
+    start_date, end_date format: 'YYYY-MM-DD'
+    Return: dict {'total_pengeluaran': X, 'top_kategori': Y, 'top_kategori_nominal': Z}
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    # Total pengeluaran mingguan
+    sql_total = '''
+        SELECT SUM(nominal) as total
+        FROM transactions 
+        WHERE user_id = %s AND DATE(timestamp) BETWEEN %s AND %s AND tipe = 'pengeluaran'
+    '''
+    cursor.execute(sql_total, (user_id, start_date, end_date))
+    total_res = cursor.fetchone()
+    total_pengeluaran = total_res['total'] if total_res and total_res['total'] else 0
+    
+    # Kategori terboros
+    sql_top = '''
+        SELECT kategori, SUM(nominal) as total
+        FROM transactions
+        WHERE user_id = %s AND DATE(timestamp) BETWEEN %s AND %s AND tipe = 'pengeluaran'
+        GROUP BY kategori
+        ORDER BY total DESC
+        LIMIT 1
+    '''
+    cursor.execute(sql_top, (user_id, start_date, end_date))
+    top_res = cursor.fetchone()
+    
+    cursor.close()
+    conn.close()
+    
+    return {
+        'total_pengeluaran': total_pengeluaran,
+        'top_kategori': top_res['kategori'] if top_res else '-',
+        'top_kategori_nominal': top_res['total'] if top_res else 0
+    }
