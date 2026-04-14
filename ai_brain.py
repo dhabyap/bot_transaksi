@@ -22,8 +22,9 @@ SKEMA JSON:
 
 ATURAN KETAT:
 1. Konversi singkatan angka: "k" / "rb" = 1000, "jt" / "juta" = 1000000.
-2. Fokus pada uang masuk, keluar, atau investasi.
-3. Jawaban HANYA berupa JSON murni tanpa ada teks pengantar Markdown apapun. Apabila error, maka kembalikan {"error": true}.
+2. Jika nominal dalam teks (misal: "setengah juta", "seratus ribu"), ubah ke angka integer (misal: 500000, 100000).
+3. Fokus pada uang masuk, keluar, atau investasi.
+4. Jawaban HANYA berupa JSON murni tanpa teks pengantar. Jika error, kembalikan {"error": true}.
 """
 
 def call_gemini(text: str) -> str:
