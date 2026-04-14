@@ -13,21 +13,25 @@ load_dotenv()
 def get_system_instruction():
     categories_str = " | ".join([f'"{cat}"' for cat in config.TRANSACTION_CATEGORIES])
     instruction = f"""
-Kamu adalah asisten AI spesialis pencatatan keuangan pribadi. Tugasmu adalah mengekstrak data dari pesan pengguna ke format JSON murni.
+Kamu adalah asisten AI spesialis pencatatan keuangan pribadi. Tugasmu adalah mengekstrak data dari pesan pengguna ke format JSON MURNI dalam bentuk LIST (ARRAY).
 
 SKEMA JSON:
-{{
-  "tipe": "pemasukan" | "pengeluaran" | "investasi",
-  "item": "deskripsi singkat transaksi",
-  "nominal": angka integer,
-  "kategori": {categories_str}
-}}
+[
+  {{
+    "tipe": "pemasukan" | "pengeluaran" | "investasi",
+    "item": "deskripsi singkat transaksi",
+    "nominal": angka integer,
+    "kategori": {categories_str}
+  }},
+  ...
+]
 
 ATURAN KETAT:
-1. Konversi singkatan angka: "k" / "rb" = 1000, "jt" / "juta" = 1000000.
-2. Jika nominal dalam teks (misal: "setengah juta", "seratus ribu"), ubah ke angka integer (misal: 500000, 100000).
-3. Fokus pada uang masuk, keluar, atau investasi.
-4. Jawaban HANYA berupa JSON murni tanpa teks pengantar. Jika error, kembalikan {{"error": true}}.
+1. Gunakan format LIST [ ... ] meskipun hanya ada satu transaksi.
+2. Konversi singkatan angka: "k" / "rb" = 1000, "jt" / "juta" = 1000000.
+3. Jika nominal dalam teks (misal: "setengah juta", "seratus ribu"), ubah ke angka integer (misal: 500000, 100000).
+4. Fokus pada uang masuk, keluar, atau investasi.
+5. Jawaban HANYA berupa JSON murni tanpa teks pengantar. Jika tidak ada transaksi sama sekali, kembalikan [ {{ "error": true }} ].
 """
     return instruction
 
@@ -123,11 +127,17 @@ def extract_json_from_text(text: str) -> str:
             return text.split("```")[1].split("```")[0].strip()
         except: pass
 
-    # 3. Cari dari kurung kurawal pertama sampai terakhir (paling robust)
-    start_index = text.find('{')
-    end_index = text.rfind('}')
-    if start_index != -1 and end_index != -1 and end_index > start_index:
-        return text[start_index:end_index+1].strip()
+    # 3. Cari dari kurung siku pertama sampai terakhir (untuk list)
+    start_array = text.find('[')
+    end_array = text.rfind(']')
+    if start_array != -1 and end_array != -1 and end_array > start_array:
+        return text[start_array:end_array+1].strip()
+
+    # 4. Cari dari kurung kurawal pertama sampai terakhir (fallback jika AI mengembalikan single object)
+    start_obj = text.find('{')
+    end_obj = text.rfind('}')
+    if start_obj != -1 and end_obj != -1 and end_obj > start_obj:
+        return text[start_obj:end_obj+1].strip()
     
     return text
 
@@ -167,12 +177,26 @@ def get_json_data_from_text(text: str) -> dict:
                 
             data = json.loads(json_text)
             
-            # Validasi minimal struktur data
-            if not any(k in data for k in ["tipe", "nominal", "item"]):
-                raise ValueError("JSON berhasil diparsing tapi struktur tidak sesuai")
+            # Normalisasi ke format LIST jika AI mengembalikan single object
+            if isinstance(data, dict):
+                data = [data]
+                
+            if not isinstance(data, list):
+                raise ValueError("Format respons AI bukan merupakan list JSON")
 
-            print(f"[ai_brain] Memanfaatkan tenaga {provider.capitalize()} berhasil!")
-            return data
+            # Validasi minimal struktur data untuk setiap item
+            valid_items = []
+            for item in data:
+                if item.get("error"):
+                    continue
+                if any(k in item for k in ["tipe", "nominal", "item"]):
+                    valid_items.append(item)
+            
+            if not valid_items and any(item.get("error") for item in data):
+                 return {"error": True}
+
+            print(f"[ai_brain] Memanfaatkan tenaga {provider.capitalize()} berhasil! ({len(valid_items)} transaksi)")
+            return valid_items
             
         except Exception as e:
             # Jika KeyError / Network Error / Rate Limit / Parsing Error dll

@@ -21,43 +21,49 @@ def register_handlers(bot):
         bot.send_chat_action(message.chat.id, 'typing')
         
         # Process text with AI
-        data = get_json_data_from_text(text)
+        results = get_json_data_from_text(text)
         
-        if data.get("error"):
+        # Jika hasil bukan list (misal {"error": true}), handle error
+        if isinstance(results, dict) and results.get("error"):
             bot.reply_to(message, "❌ Maaf, saya tidak menangkap adanya transaksi keuangan. Pastikan formatnya jelas (contoh: 'beli makan 20rb' atau 'gajian 4 juta').")
             return
             
-        tipe = data.get("tipe", "").lower()
-        item = data.get("item", "")
-        nominal = float(data.get("nominal", 0))
-        kategori = data.get("kategori", "")
+        success_count = 0
+        summary_lines = []
         
-        # Save to database based on type
         try:
-            # Sekarang hanya fokus pada pemasukan, pengeluaran, dan investasi
-            if tipe in ["pemasukan", "pengeluaran", "investasi"]:
-                last_id = database.insert_transaction(user_id, tipe, item, nominal, kategori)
+            for data in results:
+                tipe = data.get("tipe", "").lower()
+                item = data.get("item", "")
+                nominal = float(data.get("nominal", 0))
+                kategori = data.get("kategori", "")
                 
-                if tipe == "pemasukan":
-                    icon = "🟢"
-                elif tipe == "investasi":
-                    icon = "🔵"
-                else:
-                    icon = "🔴"
-                    
-                reply = (
-                    f"{icon} *Berhasil dicatat!*\n\n"
-                    f"🔹 *Tipe:* {tipe.capitalize()}\n"
-                    f"🔹 *Item:* {item}\n"
-                    f"🔹 *Nominal:* Rp {nominal:,.0f}\n"
-                    f"🔹 *Kategori:* {kategori.replace('_', ' ').capitalize()}\n\n"
-                    f"🆔 *ID:* `T-{last_id}`"
-                )
+                # Save to database based on type
+                try:
+                    if tipe in ["pemasukan", "pengeluaran", "investasi"]:
+                        last_id = database.insert_transaction(user_id, tipe, item, nominal, kategori)
+                        
+                        if tipe == "pemasukan":
+                            icon = "🟢"
+                        elif tipe == "investasi":
+                            icon = "🔵"
+                        else:
+                            icon = "🔴"
+                        
+                        summary_lines.append(
+                            f"{icon} *{tipe.capitalize()}:* {item} — Rp {nominal:,.0f} (`T-{last_id}`)"
+                        )
+                        success_count += 1
+                except Exception as e:
+                    print(f"Error inserting transaction: {e}")
+
+            if success_count > 0:
+                reply = "✅ *Berhasil mencatat " + (f"{success_count} transaksi" if success_count > 1 else "transaksi") + ":*\n\n"
+                reply += "\n".join(summary_lines)
                 bot.reply_to(message, reply, parse_mode='Markdown')
-                
             else:
-                bot.reply_to(message, "❌ Tipe data tidak dikenali dari hasil AI. Pastikan AI mengembalikan format yang benar.")
-                
+                bot.reply_to(message, "❌ Gagal mencatat transaksi. Pastikan format pesan sudah benar.")
+
         except Exception as e:
             print(f"Error in handle_text: {e}")
             bot.reply_to(message, "❌ Terjadi kesalahan sistem saat memproses permintaan Anda. Silakan coba lagi nanti.")
