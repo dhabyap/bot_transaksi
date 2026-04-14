@@ -1,7 +1,7 @@
 import io
 import json
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, Response
-from utils.excel_generator import generate_excel_report
+from utils.excel_builder import build_excel
 import database
 from datetime import datetime
 
@@ -160,7 +160,7 @@ def export_excel():
         flash("Gagal mengambil data transaksi untuk export.", "error")
         return redirect(url_for('index'))
 
-    wb = generate_excel_report(transactions, user_label, month_label, include_user_info=True)
+    wb = build_excel(transactions, user_label, month_label, include_user_info=True)
 
     # Simpan ke buffer memori
     buf = io.BytesIO()
