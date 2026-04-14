@@ -99,9 +99,25 @@ def init_db():
         ''')
         
         conn.commit()
-    finally:
-        cursor.close()
-        conn.close()
+    except mysql.connector.Error as err:
+        if err.errno == 1060:
+            pass # Kolom sudah ada
+        else:
+            print(f"Database migration error: {err}")
+    
+    # Create chat_logs table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT,
+            message TEXT,
+            timestamp DATETIME
+        )
+    ''')
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 def upsert_user(user):
