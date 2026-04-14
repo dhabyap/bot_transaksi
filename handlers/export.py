@@ -13,7 +13,7 @@ from datetime import datetime
 
 from openpyxl.utils import get_column_letter
 
-from utils.excel_generator import generate_excel_report
+from utils.excel_builder import build_excel
 import database
 from config import MONTH_NAMES
 
@@ -100,7 +100,7 @@ def register_handlers(bot):
 
         # ── Buat file Excel ────────────────────────────────────────────
         try:
-            wb = generate_excel_report(transactions, first_name, period_label, include_user_info=False)
+            wb = build_excel(transactions, first_name, period_label, include_user_info=False)
             buf = io.BytesIO()
             wb.save(buf)
             buf.seek(0)

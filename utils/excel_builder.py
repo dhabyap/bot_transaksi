@@ -3,9 +3,9 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import datetime
 
-def generate_excel_report(transactions, user_label, period_label, include_user_info=False):
+def build_excel(transactions, user_label, period_label, include_user_info=False):
     """
-    Unified Excel generator for transaction reports.
+    Unified Excel builder for transaction reports.
     
     Args:
         transactions (list): List of transaction dictionaries.

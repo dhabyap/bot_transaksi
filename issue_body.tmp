@@ -1,0 +1,32 @@
+﻿## 🔴 Prioritas: High | Kategori: Bug
+
+**File:** `database.py`, baris 85-86
+
+## Masalah
+Blok migration menggunakan `except: pass` tanpa logging sama sekali. Ini menyembunyikan error nyata selain "kolom sudah ada".
+
+## Kode Bermasalah
+```python
+try:
+    cursor.execute("ALTER TABLE users ADD COLUMN has_accepted_disclaimer TINYINT(1) DEFAULT 0")
+    conn.commit()
+except:
+    pass  # Kolom sudah ada
+```
+
+## Solusi
+Tangkap exception spesifik MySQL error 1060 (Duplicate column):
+
+```python
+import mysql.connector
+
+try:
+    cursor.execute("ALTER TABLE users ADD COLUMN has_accepted_disclaimer TINYINT(1) DEFAULT 0")
+    conn.commit()
+except mysql.connector.errors.DatabaseError as e:
+    if e.errno == 1060:  # Duplicate column name — normal, abaikan
+        pass
+    else:
+        print(f"[database] Migration error: {e}")
+        raise  # Re-raise error yang tidak dikenal
+```
