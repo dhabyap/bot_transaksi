@@ -1,5 +1,6 @@
 import os
 import mysql.connector
+from mysql.connector import pooling
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -9,6 +10,27 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "finance_bot")
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+
+# Konfigurasi Koneksi
+db_config = {
+    "host": DB_HOST,
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME
+}
+
+# Inisialisasi Connection Pool
+try:
+    db_pool = pooling.MySQLConnectionPool(
+        pool_name="finance_bot_pool",
+        pool_size=DB_POOL_SIZE,
+        **db_config
+    )
+    print(f"Connection pool created with size: {DB_POOL_SIZE}")
+except mysql.connector.Error as err:
+    print(f"Error creating connection pool: {err}")
+    db_pool = None
 
 def get_base_connection():
     return mysql.connector.connect(
@@ -18,12 +40,9 @@ def get_base_connection():
     )
 
 def get_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
+    if db_pool:
+        return db_pool.get_connection()
+    return mysql.connector.connect(**db_config)
 
 def init_db():
     # Buat database jika belum ada
