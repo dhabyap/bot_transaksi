@@ -502,47 +502,81 @@ def get_stats_summary(month_str, user_id=None):
     try:
         cursor = conn.cursor(dictionary=True)
 
-        # Bangun filter dan params sekali, gunakan ulang per query
         if user_id:
-            base_where = "DATE_FORMAT(timestamp, '%Y-%m') = %s AND user_id = %s"
+            # Query dengan filter user_id
             params = (month_str, user_id)
-        else:
-            base_where = "DATE_FORMAT(timestamp, '%Y-%m') = %s"
-            params = (month_str,)
+            
+            # Total jumlah transaksi
+            cursor.execute(
+                "SELECT COUNT(*) as total FROM transactions WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s AND user_id = %s",
+                params
+            )
+            total_tx = (cursor.fetchone() or {}).get('total', 0)
 
-        # Total jumlah transaksi
-        cursor.execute(
-            f"SELECT COUNT(*) as total FROM transactions WHERE {base_where}",
-            params
-        )
-        total_tx = (cursor.fetchone() or {}).get('total', 0)
+            # Rata-rata pengeluaran harian
+            cursor.execute(
+                """
+                SELECT AVG(daily_total) as avg_daily FROM (
+                    SELECT DATE(timestamp) as d, SUM(nominal) as daily_total
+                    FROM transactions
+                    WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s AND user_id = %s AND tipe = 'pengeluaran'
+                    GROUP BY DATE(timestamp)
+                ) sub
+                """,
+                params
+            )
+            avg_daily = (cursor.fetchone() or {}).get('avg_daily') or 0
 
-        # Rata-rata pengeluaran harian — gunakan dua parameter terpisah untuk subquery
-        cursor.execute(
-            f"""
-            SELECT AVG(daily_total) as avg_daily FROM (
-                SELECT DATE(timestamp) as d, SUM(nominal) as daily_total
+            # Kategori terbesar
+            cursor.execute(
+                """
+                SELECT kategori, SUM(nominal) as total
                 FROM transactions
-                WHERE {base_where} AND tipe = 'pengeluaran'
-                GROUP BY DATE(timestamp)
-            ) sub
-            """,
-            params  # params cukup 1x karena MySQL hanya butuh 1 pass per prepared statement
-        )
-        avg_daily = (cursor.fetchone() or {}).get('avg_daily') or 0
+                WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s AND user_id = %s AND tipe = 'pengeluaran'
+                GROUP BY kategori
+                ORDER BY total DESC
+                LIMIT 1
+                """,
+                params
+            )
+        else:
+            # Query tanpa filter user_id (global)
+            params = (month_str,)
+            
+            # Total jumlah transaksi
+            cursor.execute(
+                "SELECT COUNT(*) as total FROM transactions WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s",
+                params
+            )
+            total_tx = (cursor.fetchone() or {}).get('total', 0)
 
-        # Kategori terbesar
-        cursor.execute(
-            f"""
-            SELECT kategori, SUM(nominal) as total
-            FROM transactions
-            WHERE {base_where} AND tipe = 'pengeluaran'
-            GROUP BY kategori
-            ORDER BY total DESC
-            LIMIT 1
-            """,
-            params
-        )
+            # Rata-rata pengeluaran harian
+            cursor.execute(
+                """
+                SELECT AVG(daily_total) as avg_daily FROM (
+                    SELECT DATE(timestamp) as d, SUM(nominal) as daily_total
+                    FROM transactions
+                    WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s AND tipe = 'pengeluaran'
+                    GROUP BY DATE(timestamp)
+                ) sub
+                """,
+                params
+            )
+            avg_daily = (cursor.fetchone() or {}).get('avg_daily') or 0
+
+            # Kategori terbesar
+            cursor.execute(
+                """
+                SELECT kategori, SUM(nominal) as total
+                FROM transactions
+                WHERE DATE_FORMAT(timestamp, '%Y-%m') = %s AND tipe = 'pengeluaran'
+                GROUP BY kategori
+                ORDER BY total DESC
+                LIMIT 1
+                """,
+                params
+            )
+
         top_cat_row = cursor.fetchone()
         top_category = top_cat_row['kategori'] if top_cat_row else '-'
         top_category_val = top_cat_row['total'] if top_cat_row else 0
@@ -589,100 +623,49 @@ def get_all_transactions_export(month_str=None, user_id=None):
     try:
         cursor = conn.cursor(dictionary=True)
 
-        conditions = []
-        params = []
+        if month_str and user_id:
+            sql = '''
+                SELECT t.id, t.user_id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
+                       u.first_name, u.last_name, u.username
+                FROM transactions t
+                LEFT JOIN users u ON t.user_id = u.user_id
+                WHERE DATE_FORMAT(t.timestamp, '%Y-%m') = %s AND t.user_id = %s
+                ORDER BY t.timestamp DESC
+            '''
+            params = (month_str, user_id)
+        elif month_str:
+            sql = '''
+                SELECT t.id, t.user_id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
+                       u.first_name, u.last_name, u.username
+                FROM transactions t
+                LEFT JOIN users u ON t.user_id = u.user_id
+                WHERE DATE_FORMAT(t.timestamp, '%Y-%m') = %s
+                ORDER BY t.timestamp DESC
+            '''
+            params = (month_str,)
+        elif user_id:
+            sql = '''
+                SELECT t.id, t.user_id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
+                       u.first_name, u.last_name, u.username
+                FROM transactions t
+                LEFT JOIN users u ON t.user_id = u.user_id
+                WHERE t.user_id = %s
+                ORDER BY t.timestamp DESC
+            '''
+            params = (user_id,)
+        else:
+            sql = '''
+                SELECT t.id, t.user_id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
+                       u.first_name, u.last_name, u.username
+                FROM transactions t
+                LEFT JOIN users u ON t.user_id = u.user_id
+                ORDER BY t.timestamp DESC
+            '''
+            params = ()
 
-        if month_str:
-            conditions.append("DATE_FORMAT(t.timestamp, '%Y-%m') = %s")
-            params.append(month_str)
-        if user_id:
-            conditions.append("t.user_id = %s")
-            params.append(user_id)
-
-        where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-
-        sql = f'''
-            SELECT t.id, t.user_id, t.tipe, t.item, t.nominal, t.kategori, t.timestamp,
-                   u.first_name, u.last_name, u.username
-            FROM transactions t
-            LEFT JOIN users u ON t.user_id = u.user_id
-            {where_clause}
-            ORDER BY t.timestamp DESC
-        '''
         cursor.execute(sql, params)
-        return cursor.fetchall()
-    finally:
-        cursor.close()
-        conn.close()
-
-
-def get_daily_summary_per_user(user_id, date_str):
-    """
-    Ambil total per tipe transaksi untuk user tertentu pada tanggal tertentu.
-    date_str format: 'YYYY-MM-DD'
-    Return: dict {'pemasukan': X, 'pengeluaran': Y, 'investasi': Z}
-    """
-    conn = get_connection()
-    try:
-        cursor = conn.cursor(dictionary=True)
-        
-        sql = '''
-            SELECT tipe, SUM(nominal) as total
-            FROM transactions 
-            WHERE user_id = %s AND DATE(timestamp) = %s
-            GROUP BY tipe
-        '''
-        cursor.execute(sql, (user_id, date_str))
         results = cursor.fetchall()
-        
-        report = {"pemasukan": 0, "pengeluaran": 0, "investasi": 0}
-        for row in results:
-            tipe = row['tipe'].lower()
-            if tipe in report:
-                report[tipe] = row['total']
-                
-        return report
-    finally:
-        cursor.close()
-        conn.close()
-
-def get_weekly_summary_per_user(user_id, start_date, end_date):
-    """
-    Ambil total pengeluaran per kategori untuk user dalam rentang tanggal.
-    start_date, end_date format: 'YYYY-MM-DD'
-    Return: dict {'total_pengeluaran': X, 'top_kategori': Y, 'top_kategori_nominal': Z}
-    """
-    conn = get_connection()
-    try:
-        cursor = conn.cursor(dictionary=True)
-        
-        # Total pengeluaran mingguan
-        sql_total = '''
-            SELECT SUM(nominal) as total
-            FROM transactions 
-            WHERE user_id = %s AND DATE(timestamp) BETWEEN %s AND %s AND tipe = 'pengeluaran'
-        '''
-        cursor.execute(sql_total, (user_id, start_date, end_date))
-        total_res = cursor.fetchone()
-        total_pengeluaran = total_res['total'] if total_res and total_res['total'] else 0
-        
-        # Kategori terboros
-        sql_top = '''
-            SELECT kategori, SUM(nominal) as total
-            FROM transactions
-            WHERE user_id = %s AND DATE(timestamp) BETWEEN %s AND %s AND tipe = 'pengeluaran'
-            GROUP BY kategori
-            ORDER BY total DESC
-            LIMIT 1
-        '''
-        cursor.execute(sql_top, (user_id, start_date, end_date))
-        top_res = cursor.fetchone()
-        
-        return {
-            'total_pengeluaran': total_pengeluaran,
-            'top_kategori': top_res['kategori'] if top_res else '-',
-            'top_kategori_nominal': top_res['total'] if top_res else 0
-        }
+        return results
     finally:
         cursor.close()
         conn.close()
