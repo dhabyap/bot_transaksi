@@ -40,7 +40,30 @@ def register_handlers(bot):
                 
                 # Save to database based on type
                 try:
-                    if tipe in ["pemasukan", "pengeluaran", "investasi"]:
+                    if tipe == "saldo":
+                        # Reconcile balance
+                        current_balance = database.get_user_balance(user_id)
+                        diff = nominal - current_balance
+                        
+                        if diff == 0:
+                            summary_lines.append(f"💰 *Saldo:* Sudah sesuai di angka Rp {nominal:,.0f}")
+                            success_count += 1
+                            continue
+
+                        # Determine if reconciliation is income or expense
+                        rec_tipe = "pemasukan" if diff > 0 else "pengeluaran"
+                        rec_nominal = abs(diff)
+                        rec_item = "Penyesuaian Saldo"
+                        
+                        last_id = database.insert_transaction(user_id, rec_tipe, rec_item, rec_nominal, "lainnya")
+                        
+                        icon = "💰"
+                        summary_lines.append(
+                            f"{icon} *Saldo disesuaikan:* Rp {current_balance:,.0f} ➔ Rp {nominal:,.0f} (`T-{last_id}`)"
+                        )
+                        success_count += 1
+
+                    elif tipe in ["pemasukan", "pengeluaran", "investasi"]:
                         last_id = database.insert_transaction(user_id, tipe, item, nominal, kategori)
                         
                         if tipe == "pemasukan":
