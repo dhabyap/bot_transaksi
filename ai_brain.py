@@ -5,26 +5,31 @@ from google import genai
 from google.genai import types 
 from openai import OpenAI
 from dotenv import load_dotenv
+import config
 
 load_dotenv()
 
 # System instruction yang padat agar model AI lebih cepat merespons
-SYSTEM_INSTRUCTION = """
+def get_system_instruction():
+    categories_str = " | ".join([f'"{cat}"' for cat in config.TRANSACTION_CATEGORIES])
+    instruction = f"""
 Kamu adalah asisten AI spesialis pencatatan keuangan pribadi. Tugasmu adalah mengekstrak data dari pesan pengguna ke format JSON murni.
 
 SKEMA JSON:
-{
+{{
   "tipe": "pemasukan" | "pengeluaran" | "investasi",
   "item": "deskripsi singkat transaksi",
   "nominal": angka integer,
-  "kategori": "makanan_minuman" | "transportasi" | "tagihan_rutin" | "hiburan" | "belanja_pribadi" | "pendapatan_gaji" | "pendapatan_sampingan" | "aset_investasi" | "lainnya"
-}
+  "kategori": {categories_str}
+}}
 
 ATURAN KETAT:
 1. Konversi singkatan angka: "k" / "rb" = 1000, "jt" / "juta" = 1000000.
-2. Fokus pada uang masuk, keluar, atau investasi.
-3. Jawaban HANYA berupa JSON murni tanpa ada teks pengantar Markdown apapun. Apabila error, maka kembalikan {"error": true}.
+2. Jika nominal dalam teks (misal: "setengah juta", "seratus ribu"), ubah ke angka integer (misal: 500000, 100000).
+3. Fokus pada uang masuk, keluar, atau investasi.
+4. Jawaban HANYA berupa JSON murni tanpa teks pengantar. Jika error, kembalikan {{"error": true}}.
 """
+    return instruction
 
 def call_gemini(text: str) -> str:
     """Memanggil Google Gemini API."""
@@ -37,7 +42,7 @@ def call_gemini(text: str) -> str:
         model='gemini-2.0-flash', 
         contents=text,
         config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
+            system_instruction=get_system_instruction(),
             response_mime_type="application/json",
             temperature=0.1
         )
@@ -54,7 +59,7 @@ def call_openai_compatible(text: str, api_key: str, base_url: str, model: str) -
     response = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "system", "content": get_system_instruction()},
             {"role": "user", "content": text}
         ],
         temperature=0.1
@@ -76,7 +81,7 @@ def call_cohere(text: str) -> str:
         json={
             "model": "command-r",
             "message": text,
-            "preamble": SYSTEM_INSTRUCTION,
+            "preamble": get_system_instruction(),
             "temperature": 0.1
         }
     )

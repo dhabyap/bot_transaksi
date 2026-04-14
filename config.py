@@ -19,3 +19,8 @@ MONTH_NAMES = {
     5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
     9: "September", 10: "Oktober", 11: "November", 12: "Desember"
 }
+TRANSACTION_CATEGORIES = [
+    "makanan_minuman", "transportasi", "tagihan_rutin", "hiburan", 
+    "belanja_pribadi", "pendapatan_gaji", "pendapatan_sampingan", 
+    "aset_investasi", "lainnya"
+]
