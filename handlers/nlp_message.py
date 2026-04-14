@@ -59,5 +59,5 @@ def register_handlers(bot):
                 bot.reply_to(message, "❌ Tipe data tidak dikenali dari hasil AI. Pastikan AI mengembalikan format yang benar.")
                 
         except Exception as e:
-            default_error_msg = f"❌ Terjadi kesalahan saat menyimpan data ke database:\n{str(e)}"
-            bot.reply_to(message, default_error_msg)
+            print(f"Error in handle_text: {e}")
+            bot.reply_to(message, "❌ Terjadi kesalahan sistem saat memproses permintaan Anda. Silakan coba lagi nanti.")

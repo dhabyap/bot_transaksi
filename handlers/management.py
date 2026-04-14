@@ -98,4 +98,5 @@ def register_handlers(bot):
         except ValueError:
             bot.reply_to(message, "❌ Format ID salah. Gunakan angka (contoh: `/edit 10 ...`) atau format T (contoh: `/edit T-10 ...`)", parse_mode='Markdown')
         except Exception as e:
-            bot.reply_to(message, f"❌ Terjadi kesalahan sistem: {str(e)}")
+            print(f"Error in management handler: {e}")
+            bot.reply_to(message, "❌ Terjadi kesalahan sistem saat memproses permintaan Anda.")

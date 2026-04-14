@@ -82,8 +82,11 @@ def init_db():
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN has_accepted_disclaimer TINYINT(1) DEFAULT 0")
         conn.commit()
-    except:
-        pass # Kolom sudah ada
+    except mysql.connector.Error as err:
+        if err.errno == 1060:
+            pass # Kolom sudah ada
+        else:
+            print(f"Database migration error: {err}")
     
     # Create chat_logs table
     cursor.execute('''
