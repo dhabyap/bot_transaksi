@@ -669,3 +669,25 @@ def get_all_transactions_export(month_str=None, user_id=None):
     finally:
         cursor.close()
         conn.close()
+
+def get_user_balance(user_id):
+    """
+    Menghitung total saldo saat ini dari user (Pemasukan - Pengeluaran - Investasi).
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        # Hitung saldo: sum income - sum expense - sum investment
+        cursor.execute('''
+            SELECT 
+                SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END) - 
+                SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END) - 
+                SUM(CASE WHEN tipe = 'investasi' THEN nominal ELSE 0 END) as balance
+            FROM transactions 
+            WHERE user_id = %s
+        ''', (user_id,))
+        res = cursor.fetchone()
+        return res['balance'] if res['balance'] is not None else 0
+    finally:
+        cursor.close()
+        conn.close()
