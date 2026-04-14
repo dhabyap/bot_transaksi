@@ -107,34 +107,83 @@ def call_provider(provider: str, text: str) -> str:
     else:
         raise ValueError(f"Provider {provider} tidak didukung")
 
+def extract_json_from_text(text: str) -> str:
+    """Ekstraksi JSON dari teks, menangani kemungkinan filler atau markdown."""
+    text = text.strip()
+    
+    # 1. Coba cari blok markdown ```json ... ```
+    if "```json" in text:
+        try:
+            return text.split("```json")[1].split("```")[0].strip()
+        except: pass
+    
+    # 2. Coba cari blok markdown ``` ... ```
+    if "```" in text:
+        try:
+            return text.split("```")[1].split("```")[0].strip()
+        except: pass
+
+    # 3. Cari dari kurung kurawal pertama sampai terakhir (paling robust)
+    start_index = text.find('{')
+    end_index = text.rfind('}')
+    if start_index != -1 and end_index != -1 and end_index > start_index:
+        return text[start_index:end_index+1].strip()
+    
+    return text
+
 def get_json_data_from_text(text: str) -> dict:
     """
     Dispatcher utama yang menggunakan mekanisme fallback antar berbagai LLM provider tanpa batas.
     """
     fallback_order = os.getenv("LLM_FALLBACK_ORDER", "gemini,groq,openrouter,deepseek,cohere,together,huggingface").split(",")
     
+    # Map provider ke nama environment variabel key-nya untuk pre-validation
+    key_map = {
+        "gemini": "GEMINI_API_KEY",
+        "groq": "GROQ_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
+        "cohere": "COHERE_API_KEY",
+        "together": "TOGETHER_API_KEY",
+        "huggingface": "HF_API_KEY"
+    }
+
     for provider in fallback_order:
         provider = provider.strip().lower()
         if not provider: continue
         
+        # Pre-validation: Skip jika API key tidak ada
+        env_key = key_map.get(provider)
+        if env_key and not os.getenv(env_key):
+            print(f"[ai_brain] Skip {provider}: {env_key} tidak disetel.")
+            continue
+
         try:
             print(f"[ai_brain] Mencoba menggunakan provider: {provider}...")
             response_text = call_provider(provider, text)
             
-            # Bersihkan output markdown jika provider mengembalikan \```json ... \```
-            if response_text.startswith("```json"):
-                response_text = response_text[7:-3].strip()
-            elif response_text.startswith("```"):
-                response_text = response_text[3:-3].strip()
+            # Bersihkan dan ambil JSON murni
+            json_text = extract_json_from_text(response_text)
                 
-            data = json.loads(response_text)
+            data = json.loads(json_text)
+            
+            # Validasi minimal struktur data
+            if not any(k in data for k in ["tipe", "nominal", "item"]):
+                raise ValueError("JSON berhasil diparsing tapi struktur tidak sesuai")
+
             print(f"[ai_brain] Memanfaatkan tenaga {provider.capitalize()} berhasil!")
             return data
             
         except Exception as e:
-            # Jika KeyError / Network Error / Rate Limit dll
-            print(f"[ai_brain] Router gagal di jalur {provider}. Melompat ke backup selanjutnya... (Error: {e})")
+            # Jika KeyError / Network Error / Rate Limit / Parsing Error dll
+            error_msg = str(e)
+            if "429" in error_msg or "rate_limit" in error_msg.lower():
+                print(f"[ai_brain] Provider {provider} mencapai rate limit.")
+            else:
+                print(f"[ai_brain] Router gagal di jalur {provider}. (Error: {error_msg})")
+            
+            print(f"[ai_brain] Melompat ke backup selanjutnya...")
             continue 
             
-    print("[ai_brain] FATAL: Semua LLM provider back-up gagal atau API Key tidak disetel.")
+    print("[ai_brain] FATAL: Semua LLM provider backup gagal atau API Key tidak disetel.")
     return {"error": True}
