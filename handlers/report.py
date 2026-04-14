@@ -1,4 +1,5 @@
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.apihelper import ApiTelegramException
 import calendar
 from datetime import datetime
 import database
@@ -90,8 +91,11 @@ def register_handlers(bot):
                 parse_mode='Markdown', 
                 reply_markup=markup
             )
-        except Exception as e:
-            pass # Abaikan jika error karena pesan tidak ada perubahan
+        except ApiTelegramException as e:
+            if "message is not modified" in str(e).lower():
+                pass # Abaikan jika error karena pesan tidak ada perubahan
+            else:
+                print(f"Telegram API Error (report callback): {e}")
 
     @bot.message_handler(commands=['riwayat'])
     def send_history(message):

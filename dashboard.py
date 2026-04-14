@@ -70,7 +70,8 @@ def index():
         investasi   = float(report.get('investasi') or 0)
 
     except Exception as e:
-        flash(f"Error mengakses database: {e}", "error")
+        print(f"Error accessing database in dashboard: {e}")
+        flash("Terjadi kesalahan saat mengakses data dari database.", "error")
         transactions  = []
         all_users     = []
         category_data = []
@@ -121,7 +122,8 @@ def delete_tx(tx_id):
         else:
             flash("❌ Data transaksi tidak ditemukan.", "error")
     except Exception as e:
-        flash(f"❌ Error sistem: {e}", "error")
+        print(f"Error in dashboard deletion: {e}")
+        flash("Terjadi kesalahan sistem saat menghapus data.", "error")
 
     return redirect(request.referrer or url_for('index'))
 

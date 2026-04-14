@@ -80,8 +80,9 @@ def register_handlers(bot):
                 user_id=user_id         # ← hanya data milik user ini
             )
         except Exception as e:
+            print(f"Error fetching export data: {e}")
             bot.edit_message_text(
-                f"❌ Gagal mengambil data: {e}",
+                "❌ Gagal mengambil data transaksi. Silakan coba lagi nanti.",
                 chat_id=message.chat.id,
                 message_id=status_msg.message_id
             )
@@ -104,8 +105,9 @@ def register_handlers(bot):
             wb.save(buf)
             buf.seek(0)
         except Exception as e:
+            print(f"Error building Excel file: {e}")
             bot.edit_message_text(
-                f"❌ Gagal membuat file Excel: {e}",
+                "❌ Gagal membuat file Excel. Silakan coba lagi nanti.",
                 chat_id=message.chat.id,
                 message_id=status_msg.message_id
             )
