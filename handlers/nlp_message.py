@@ -1,5 +1,10 @@
 import database
 from ai_brain import get_json_data_from_text
+import time
+
+# Dictionary untuk menyimpan timestamp pemrosesan AI terakhir per user (Rate Limiting)
+last_ai_calls = {}
+RATE_LIMIT_COOLDOWN = 10  # detik
 
 def register_handlers(bot):
     # Gunakan lambda yang menangkap semua teks, tapi pastikan bukan command
@@ -19,6 +24,18 @@ def register_handlers(bot):
         
         # Show typing status while processing
         bot.send_chat_action(message.chat.id, 'typing')
+        
+        # --- RATE LIMITING CHECK ---
+        now = time.time()
+        if user_id in last_ai_calls:
+            elapsed = now - last_ai_calls[user_id]
+            if elapsed < RATE_LIMIT_COOLDOWN:
+                remaining = int(RATE_LIMIT_COOLDOWN - elapsed)
+                bot.reply_to(message, f"⚠️ *Terlalu cepat!* Mohon tunggu {remaining} detik lagi sebelum mencatat transaksi baru... 🙏", parse_mode='Markdown')
+                return
+        
+        # Update timestamp pemrosesan terakhir
+        last_ai_calls[user_id] = now
         
         # Process text with AI
         data = get_json_data_from_text(text)
