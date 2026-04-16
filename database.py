@@ -1,5 +1,6 @@
 import os
 import mysql.connector
+from mysql.connector import pooling
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -9,6 +10,27 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "finance_bot")
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+
+# Konfigurasi Koneksi
+db_config = {
+    "host": DB_HOST,
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME
+}
+
+# Inisialisasi Connection Pool
+try:
+    db_pool = pooling.MySQLConnectionPool(
+        pool_name="finance_bot_pool",
+        pool_size=DB_POOL_SIZE,
+        **db_config
+    )
+    print(f"Connection pool created with size: {DB_POOL_SIZE}")
+except mysql.connector.Error as err:
+    print(f"Error creating connection pool: {err}")
+    db_pool = None
 
 def get_base_connection():
     return mysql.connector.connect(
@@ -18,12 +40,9 @@ def get_base_connection():
     )
 
 def get_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
+    if db_pool:
+        return db_pool.get_connection()
+    return mysql.connector.connect(**db_config)
 
 def init_db():
     # Buat database jika belum ada
@@ -666,6 +685,28 @@ def get_all_transactions_export(month_str=None, user_id=None):
         cursor.execute(sql, params)
         results = cursor.fetchall()
         return results
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_user_balance(user_id):
+    """
+    Menghitung total saldo saat ini dari user (Pemasukan - Pengeluaran - Investasi).
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        # Hitung saldo: sum income - sum expense - sum investment
+        cursor.execute('''
+            SELECT 
+                SUM(CASE WHEN tipe = 'pemasukan' THEN nominal ELSE 0 END) - 
+                SUM(CASE WHEN tipe = 'pengeluaran' THEN nominal ELSE 0 END) - 
+                SUM(CASE WHEN tipe = 'investasi' THEN nominal ELSE 0 END) as balance
+            FROM transactions 
+            WHERE user_id = %s
+        ''', (user_id,))
+        res = cursor.fetchone()
+        return res['balance'] if res['balance'] is not None else 0
     finally:
         cursor.close()
         conn.close()
