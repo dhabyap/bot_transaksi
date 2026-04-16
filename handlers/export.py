@@ -118,9 +118,9 @@ def register_handlers(bot):
         safe_period  = period_label.replace(" ", "_").replace("/", "-")
         filename     = f"transaksi_{safe_name}_{safe_period}.xlsx"
 
-        pemasukan   = sum(t.get("nominal", 0) or 0 for t in transactions if (t.get("tipe") or "").lower() == "pemasukan")
-        pengeluaran = sum(t.get("nominal", 0) or 0 for t in transactions if (t.get("tipe") or "").lower() == "pengeluaran")
-        investasi   = sum(t.get("nominal", 0) or 0 for t in transactions if (t.get("tipe") or "").lower() == "investasi")
+        pemasukan   = sum(tx.get("nominal", 0) or 0 for tx in transactions if (tx.get("tipe") or "").lower() == "pemasukan")
+        pengeluaran = sum(tx.get("nominal", 0) or 0 for tx in transactions if (tx.get("tipe") or "").lower() == "pengeluaran")
+        investasi   = sum(tx.get("nominal", 0) or 0 for tx in transactions if (tx.get("tipe") or "").lower() == "investasi")
         saldo_cash  = pemasukan - pengeluaran
 
         caption = (
