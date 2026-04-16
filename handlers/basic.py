@@ -77,6 +77,8 @@ def register_handlers(bot):
         first_seen = profile.get("first_seen")
         last_active = profile.get("last_active")
         msg_count = profile.get("message_count", 0)
+        streak = profile.get("streak_count", 0)
+        streak_icon = "🔥" if streak > 0 else "❄️"
         
         # Format tanggal agar lebih rapi
         fs_str = first_seen.strftime("%d %b %Y %H:%M") if first_seen else "-"
@@ -89,6 +91,7 @@ def register_handlers(bot):
             f"🔹 *ID:* `{user_id}`\n\n"
             f"📊 *Statistik Interaksi*\n"
             f"💬 *Jumlah Pesan:* {msg_count} pesan dicatat\n"
+            f"{streak_icon} *Streak Harian:* {streak} hari berturut-turut\n"
             f"📅 *Mulai Menggunakan:* {fs_str}\n"
             f"⏱ *Terakhir Aktif:* {la_str}"
         )
