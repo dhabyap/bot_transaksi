@@ -151,9 +151,9 @@ def build_excel(transactions, user_label, period_label, include_user_info=False)
     ws2.cell(row=2, column=1, value="Periode").font = Font(bold=True, size=9, color="888888")
     ws2.cell(row=2, column=2, value=f"{user_label} | {period_label}").font = Font(size=9, color="888888")
 
-    pemasukan   = sum(t.get("nominal", 0) or 0 for t in transactions if (t.get("tipe") or "").lower() == "pemasukan")
-    pengeluaran = sum(t.get("nominal", 0) or 0 for t in transactions if (t.get("tipe") or "").lower() == "pengeluaran")
-    investasi   = sum(t.get("nominal", 0) or 0 for t in transactions if (t.get("tipe") or "").lower() == "investasi")
+    pemasukan   = sum(tx.get("nominal", 0) or 0 for tx in transactions if (tx.get("tipe") or "").lower() == "pemasukan")
+    pengeluaran = sum(tx.get("nominal", 0) or 0 for tx in transactions if (tx.get("tipe") or "").lower() == "pengeluaran")
+    investasi   = sum(tx.get("nominal", 0) or 0 for tx in transactions if (tx.get("tipe") or "").lower() == "investasi")
     saldo_cash   = pemasukan - pengeluaran
     saldo_bersih = pemasukan - pengeluaran - investasi
 
