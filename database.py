@@ -1,7 +1,7 @@
 import os
 import mysql.connector
 from mysql.connector import pooling
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -101,11 +101,21 @@ def init_db():
         ''')
 
         # Migration: Tambahkan kolom if not exists (untuk database yang sudah ada)
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN has_accepted_disclaimer TINYINT(1) DEFAULT 0")
-            conn.commit()
-        except:
-            pass # Kolom sudah ada
+        migration_columns = [
+            "ALTER TABLE users ADD COLUMN has_accepted_disclaimer TINYINT(1) DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN streak_count INT DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN last_streak_date DATE DEFAULT NULL"
+        ]
+        
+        for sql in migration_columns:
+            try:
+                cursor.execute(sql)
+                conn.commit()
+            except mysql.connector.Error as err:
+                if err.errno == 1060: # Column already exists
+                    pass
+                else:
+                    print(f"Migration error for '{sql}': {err}")
         
         # Create chat_logs table
         cursor.execute('''
@@ -707,6 +717,65 @@ def get_user_balance(user_id):
         ''', (user_id,))
         res = cursor.fetchone()
         return res['balance'] if res['balance'] is not None else 0
+    finally:
+        cursor.close()
+        conn.close()
+
+def update_user_streak(user_id):
+    """
+    Update streak harian user. 
+    Returns: (new_streak, is_new_milestone)
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT streak_count, last_streak_date FROM users WHERE user_id = %s", (user_id,))
+        user = cursor.fetchone()
+        
+        if not user:
+            return 0, False
+            
+        current_streak = user['streak_count'] or 0
+        last_date = user['last_streak_date']
+        
+        # Jika last_date adalah string (tergantung driver/config), parse ke date object
+        if isinstance(last_date, str):
+            try:
+                last_date = datetime.strptime(last_date, "%Y-%m-%d").date()
+            except:
+                last_date = None
+        
+        today = datetime.now().date()
+        yesterday = today - timedelta(days=1)
+        
+        new_streak = current_streak
+        is_new_milestone = False
+        
+        if last_date is None:
+            # Streak pertama kali
+            new_streak = 1
+        elif last_date == today:
+            # Sudah diupdate hari ini, biarkan
+            return current_streak, False
+        elif last_date == yesterday:
+            # Melanjutkan streak
+            new_streak = current_streak + 1
+        else:
+            # Streak terputus (melewati > 1 hari)
+            new_streak = 1
+            
+        # Update ke DB
+        cursor.execute(
+            "UPDATE users SET streak_count = %s, last_streak_date = %s WHERE user_id = %s",
+            (new_streak, today, user_id)
+        )
+        conn.commit()
+        
+        # Cek milestone (3, 7, 14, 30)
+        if new_streak in [3, 7, 14, 30]:
+            is_new_milestone = True
+            
+        return new_streak, is_new_milestone
     finally:
         cursor.close()
         conn.close()

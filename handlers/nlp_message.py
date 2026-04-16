@@ -101,6 +101,23 @@ def register_handlers(bot):
                 reply = "✅ *Berhasil mencatat " + (f"{success_count} transaksi" if success_count > 1 else "transaksi") + ":*\n\n"
                 reply += "\n".join(summary_lines)
                 bot.reply_to(message, reply, parse_mode='Markdown')
+                
+                # --- STREAK LOGIC ---
+                try:
+                    new_streak, is_milestone = database.update_user_streak(user_id)
+                    if is_milestone:
+                        milestone_msgs = {
+                            3: "🔥 *Mantap!* Ini hari ke-3 kamu konsisten mencatat. Pertahankan! 🚀",
+                            7: "🏆 *Selamat!* Kamu sudah 7 hari berturut-turut mencatat. Kamu luar biasa! 🌟",
+                            14: "✨ *Luar biasa!* 14 hari tanpa putus. Kamu benar-benar disiplin dalam mengelola keuangan! 💪",
+                            30: "👑 *GOKIL!* 30 hari konsisten! Kamu adalah master keuangan. Lanjutkan terus perjalananmu! 🌈"
+                        }
+                        celebration = milestone_msgs.get(new_streak, "")
+                        if celebration:
+                            # Kirim pesan terpisah untuk apresiasi agar lebih berkesan
+                            bot.send_message(message.chat.id, celebration, parse_mode='Markdown')
+                except Exception as streak_err:
+                    print(f"Error updating streak: {streak_err}")
             else:
                 bot.reply_to(message, "❌ Gagal mencatat transaksi. Pastikan format pesan sudah benar.")
 
