@@ -33,6 +33,13 @@ except mysql.connector.Error as err:
     db_pool = None
 
 def get_base_connection():
+    """
+    Membangun koneksi dasar ke server MySQL (tanpa spesifik database).
+    Digunakan untuk operasi level administratif seperti CREATE DATABASE.
+
+    Returns:
+        mysql.connector.connection.MySQLConnection: Objek koneksi MySQL.
+    """
     return mysql.connector.connect(
         host=DB_HOST,
         user=DB_USER,
@@ -40,11 +47,21 @@ def get_base_connection():
     )
 
 def get_connection():
+    """
+    Mengambil koneksi database dari pool jika tersedia, atau membuat koneksi baru.
+    
+    Returns:
+        mysql.connector.connection.MySQLConnection: Objek koneksi database yang aktif.
+    """
     if db_pool:
         return db_pool.get_connection()
     return mysql.connector.connect(**db_config)
 
 def init_db():
+    """
+    Inisialisasi database dan semua tabel yang diperlukan.
+    Melakukan pengecekan database, pembuatan tabel, dan migrasi kolom jika diperlukan.
+    """
     # Buat database jika belum ada
     base_conn = get_base_connection()
     try:
@@ -195,6 +212,19 @@ def update_disclaimer_status(user_id, status=1):
 
 
 def insert_transaction(user_id, tipe, item, nominal, kategori):
+    """
+    Menyimpan data transaksi baru ke dalam database.
+
+    Args:
+        user_id (int): ID unik user Telegram.
+        tipe (str): Tipe transaksi (pemasukan, pengeluaran, investasi).
+        item (str): Deskripsi barang atau keterangan transaksi.
+        nominal (float): Nilai nominal uang dalam transaksi.
+        kategori (str): Kategori transaksi (misal: makanan, transportasi).
+
+    Returns:
+        int: ID baris (primary key) dari transaksi yang baru saja dimasukkan.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -211,6 +241,18 @@ def insert_transaction(user_id, tipe, item, nominal, kategori):
         conn.close()
 
 def insert_inventory(user_id, nama_barang, kuantitas, status):
+    """
+    Menyimpan data barang inventaris baru ke dalam database.
+
+    Args:
+        user_id (int): ID unik user Telegram.
+        nama_barang (str): Nama barang yang dicatat.
+        kuantitas (int): Jumlah barang.
+        status (str): Status barang (misal: ada, habis, dipinjam).
+
+    Returns:
+        int: ID baris dari data inventaris yang baru saja dimasukkan.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -227,6 +269,17 @@ def insert_inventory(user_id, nama_barang, kuantitas, status):
         conn.close()
 
 def get_monthly_report(user_id=None, month_str=None):
+    """
+    Mengambil ringkasan laporan bulanan (total pemasukan, pengeluaran, investasi).
+
+    Args:
+        user_id (int, optional): ID user untuk filter laporan personal.
+        month_str (str, optional): Bulan laporan dalam format 'YYYY-MM'. 
+                                  Default adalah bulan saat ini.
+
+    Returns:
+        dict: Dictionary berisi total nominal untuk tiap tipe transaksi.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor(dictionary=True)
@@ -297,6 +350,16 @@ def get_transactions_by_month(month_str, user_id=None):
         conn.close()
 
 def delete_transaction(tx_id, user_id):
+    """
+    Menghapus data transaksi tertentu berdasarkan ID dan User ID.
+
+    Args:
+        tx_id (int): ID transaksi yang akan dihapus.
+        user_id (int): ID user pemilik transaksi tersebut.
+
+    Returns:
+        bool: True jika berhasil dihapus, False jika data tidak ditemukan.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -324,6 +387,16 @@ def admin_delete_transaction(tx_id):
         conn.close()
 
 def delete_inventory(inv_id, user_id):
+    """
+    Menghapus data inventaris tertentu berdasarkan ID dan User ID.
+
+    Args:
+        inv_id (int): ID inventaris yang akan dihapus.
+        user_id (int): ID user pemilik inventaris tersebut.
+
+    Returns:
+        bool: True jika berhasil dihapus, False jika data tidak ditemukan.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -337,6 +410,20 @@ def delete_inventory(inv_id, user_id):
         conn.close()
 
 def update_transaction(tx_id, user_id, tipe, item, nominal, kategori):
+    """
+    Memperbarui data transaksi yang sudah ada.
+
+    Args:
+        tx_id (int): ID transaksi yang akan diubah.
+        user_id (int): ID user pemilik transaksi.
+        tipe (str): Tipe baru transaksi.
+        item (str): Deskripsi baru transaksi.
+        nominal (float): Nominal baru transaksi.
+        kategori (str): Kategori baru transaksi.
+
+    Returns:
+        bool: True jika berhasil diupdate, False jika tidak ada baris yang berubah.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -354,6 +441,19 @@ def update_transaction(tx_id, user_id, tipe, item, nominal, kategori):
         conn.close()
 
 def update_inventory(inv_id, user_id, nama_barang, kuantitas, status):
+    """
+    Memperbarui data inventaris yang sudah ada.
+
+    Args:
+        inv_id (int): ID inventaris yang akan diubah.
+        user_id (int): ID user pemilik inventaris.
+        nama_barang (str): Nama barang baru.
+        kuantitas (int): Jumlah barang baru.
+        status (str): Status baru barang.
+
+    Returns:
+        bool: True jika berhasil diupdate, False jika tidak ada baris yang berubah.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -371,6 +471,16 @@ def update_inventory(inv_id, user_id, nama_barang, kuantitas, status):
         conn.close()
 
 def get_history(user_id, limit=10):
+    """
+    Mengambil riwayat gabungan dari transaksi dan inventaris user.
+
+    Args:
+        user_id (int): ID user Telegram.
+        limit (int, optional): Jumlah maksimal data yang diambil. Default 10.
+
+    Returns:
+        list: List of dictionaries berisi data riwayat terurut dari yang terbaru.
+    """
     conn = get_connection()
     try:
         cursor = conn.cursor(dictionary=True)
